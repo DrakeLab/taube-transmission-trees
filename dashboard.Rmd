@@ -290,7 +290,7 @@ shiny::downloadLink(outputId = "dwnButton", label = "Download database here.")
 
 #### Contributions
 
-We invite contributions to this database. To contrubute:    
+We invite contributions to this database. To contribute:    
 John M. Drake  
 `jdrake@uga.edu`. 
 
