@@ -11,6 +11,11 @@ Public health investigations often aim to identify who infected whom, or the tra
 ### Contents:
 dashboard.Rmd: code for OutbreakTrees.ecology.uga.edu website where anyone can access trees and download them for use
 analysis.Rmd: code for tree analysis, including several sample analyses
+analysis.pdf: figures
+data: contains compiled lists of trees
+documents: contains csv with tree metadata, including name in database, location, and year of outbreak, and tree source
+scripts: contains key functions to initial tree analysis
+www: contains files for dashboard/website
 
 ### Instructions to reproduce results:
 To reproduce results, run the analysis.Rmd file. This file has already compiled the trees and will complete key calculations and produce the relevant figures.
