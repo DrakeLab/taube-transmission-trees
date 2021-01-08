@@ -1,0 +1,1231 @@
+---
+title: "analysis"
+author: "Juliana Taube"
+date: "1/8/2021"
+output: 
+  pdf_document: 
+    fig_caption: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.height = 8, dpi = 600)
+                      #, fig.path = "msfigs/")
+library(magick)
+library(knitr)
+library(MASS)
+library(magrittr)
+library(igraph)
+library(data.tree)
+library(yaml)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(ggplot2); theme_set(theme_bw())
+library(ggpubr)
+library(grid)
+library(GGally)
+library(gtable)
+library(RColorBrewer)
+library(reshape)
+library(stringr)
+library(tidyverse)
+library(ggpubr)
+
+txs <- 12 # text size
+options(scipen = 999)
+
+# import tree data
+tree_data <- readRDS("data/data_tibble_trees.RDS")
+
+# color scale for diseases, labels are disease names
+tree_data$Dis <- factor(tree_data$Dis, labels=c("Adenovir.","COVID","Chckpox.","Ebola", "Flu.","Hep. A",
+         "Measles","MERS","Nipah","Norovir.","Plague",
+         "Pertussis","Rubella","SARS","Smallpox","Tubercul."))
+tree_data$full_Dis <- factor(tree_data$Dis, labels=c("Adenovirus","COVID-19","Chickenpox","Ebola", "Influenza","Hepatitis A",
+         "Measles","MERS","Nipah","Norovirus","Plague",
+         "Pertussis","Rubella","SARS","Smallpox","Tuberculosis"))
+myColors <- colorspace::rainbow_hcl(length(unique(tree_data$Dis)))
+names(myColors) <- levels(tree_data$Dis)
+colScale <- scale_colour_manual(name = "Dis", values = myColors)
+fillScale <- scale_fill_manual(name = "Dis", values = myColors)
+```
+
+```{r figure saving, include = FALSE}
+# Typography
+font.family <- "Times" # Must be allowed by publisher and must be installed on your system.
+font.sizes <- seq(from = 8, # publisher's minimum point size (points)
+                 to = 12, # publisher's maximum point size (points) 
+                 length.out = 5)
+font.size.normal <- mean(font.sizes)
+font.scales <- font.sizes/mean(font.sizes)
+names(font.scales) <- names(font.sizes) <- c("XS", "S", "M", "L", "XL")
+
+# Figure dimensions
+figure.widths <- c(min=2.63, page=7.5, column=5.2) # in inches, as defined by publisher
+figure.heights <- c(min=1, page=8.75) # in inches, as defined by publisher
+```
+
+```{r inf by ss function BY TREE}
+# Determines average out degree of nodes infected vs not infected by a superspreader, as well as success rate
+inf_by_ss_info <- function(tree, id){ 
+  tree.r0 <- round(mean(degree(tree, mode = "out")), digits = 2)
+  thresh <- qpois(0.99, tree.r0) #threshold num 2nd infs to be a SS, Lloyd-Smith et al. (2005)
+  names_ss <- names(which(degree(tree, mode = c("out")) > thresh))
+  zero_name <- names(which(degree(tree, mode = c("in")) == 0)) #root node
+  
+  # initialize variables
+  ss_success_rate_num <- 0 
+  ss_success_rate_denom <- 0
+  case_success_rate_num <- 0 
+  case_success_rate_denom <- 0
+  infectors_ris <- list()
+  non_infectors_ris <- list() 
+  
+  # if tree has a superspreader
+  if(length(names_ss) > 0){
+    names_dir_infected <- list() # list of nodes directly infected by ALL superspreaders
+    infectors <- list()
+    for(i in 1:length(names_ss)){ #for each superspreader
+      names_dir_infected <- append(names_dir_infected, names(V(tree)[which(distances(tree, v = names_ss[i], to = V(tree), mode = c("out")) == 1)])) #add names of those directly infected by ss to this list
+      infector <- names(V(tree)[which(distances(tree, v = names_ss[i], to = V(tree), mode = c("in")) == 1)])
+      if(! identical(infector, character(0))){
+        infectors <- append(infectors, infector) #add all infectors of superspreaders in this tree to this list
+      }
+    }
+    ss_success_rate_denom <- length(names_dir_infected) # all ppl infected by ss, moved to not inside loop
+    for(j in 1:length(names_ss)){ #also moved outside loop
+          if(names_ss[j] %in% names_dir_infected){
+            ss_success_rate_num <- ss_success_rate_num + 1 # ss in list of all ppl infected by ss
+          }
+        }
+    
+    # for each node, see if infected by a ss, calculate its out degree, also calculate success rate nums and denoms
+    for(i in 1:length(V(tree))){
+      
+      # superspreaders
+      if((names(V(tree)[i]) %in% names_ss)){ 
+        if(names(V(tree)[i]) %in% infectors){ # Includes superspreaders in Ri comparison
+          infectors_ris <- append(infectors_ris, degree(tree, v = V(tree)[i], mode = c("out")))
+        }else{
+          non_infectors_ris <- append(non_infectors_ris, degree(tree, v = V(tree)[i], mode = c("out")))
+        }
+    
+      # non superspreader root, unknown infector
+      }else if(names(V(tree)[i]) == zero_name){  
+        case_success_rate_denom <- case_success_rate_denom + as.integer(degree(tree, v = V(tree)[i], mode = c("out")))
+        if(names(V(tree)[i]) %in% infectors){
+          case_success_rate_num <- case_success_rate_num + 1
+          infectors_ris <- append(infectors_ris, degree(tree, v = V(tree)[i], mode = c("out")))
+        }else{
+          non_infectors_ris <- append(non_infectors_ris, degree(tree, v = V(tree)[i], mode = c("out")))
+        }
+        
+      # if case infected by a superspreader
+      }else if(names(V(tree)[i]) %in% names_dir_infected){
+        # we already took care of if this is a superspreader
+        case_success_rate_denom <-  case_success_rate_denom + as.integer(degree(tree, v = V(tree)[i], mode = c("out")))
+        if(names(V(tree)[i]) %in% infectors){
+          case_success_rate_num <- case_success_rate_num + 1
+          infectors_ris <- append(infectors_ris, degree(tree, v = V(tree)[i], mode = c("out")))
+        }else{
+          non_infectors_ris <- append(non_infectors_ris, degree(tree, v = V(tree)[i], mode = c("out")))
+        }
+        
+      # if case not infected by a superspreader
+      }else{ 
+        case_success_rate_denom <-  case_success_rate_denom + as.integer(degree(tree, v = V(tree)[i], mode = c("out")))
+        if(names(V(tree)[i]) %in% infectors){
+          case_success_rate_num <- case_success_rate_num + 1
+          infectors_ris <- append(infectors_ris, degree(tree, v = V(tree)[i], mode = c("out")))
+        }else{
+          non_infectors_ris <- append(non_infectors_ris, degree(tree, v = V(tree)[i], mode = c("out")))
+        }
+      }
+    } # end loop through nodes
+   
+  }else{ # no superspreaders in tree
+    # success rates irrelevant here since no superspreaders
+    case_success_rate_num <- NA
+    case_success_rate_denom <- NA
+    ss_success_rate_num <- NA
+    ss_success_rate_denom <- NA
+    for(i in 1:length(V(tree))){
+      non_infectors_ris <- append(non_infectors_ris, degree(tree, v = V(tree)[i], mode = c("out")))
+    }
+  }
+  # success rates
+  ss_success_rate <- ss_success_rate_num / ss_success_rate_denom
+  case_success_rate <- case_success_rate_num / case_success_rate_denom
+  
+  # ss-ss dyads
+  observed_ss_dyads <- ifelse(is.na(ss_success_rate_num), 0, ss_success_rate_num)
+  expected_ss_dyads <- (length(names_ss) * (length(names_ss) - 1))/vcount(tree)
+  excess_ss_dyads <- observed_ss_dyads - expected_ss_dyads
+  
+  
+  output <- list(id = id, 
+                 `SS Success Rate` = ss_success_rate,
+                 `Case Success Rate` = case_success_rate,
+                 `Obs SS Dyads` = observed_ss_dyads,
+                 `Exp SS Dyads`= expected_ss_dyads,
+                 `Excess SS Dyads` = excess_ss_dyads)
+  output$`Infectors Ris` <- list(infectors_ris)
+  output$`Non-Infectors Ris` <- list(non_infectors_ris)
+                       # `Infectors Ris` =  infectors_ris, #I(list(infectors_ris)),
+                       # `Non-Infectors Ris` = non_infectors_ris) #I(list(non_infectors_ris))) 
+  return(output)
+}
+```
+
+```{r extract ss info func BY SUPERSPREADER}
+## Returns a data frame with each superspreader, operates on igraph object
+extract_ss_info <- function(tree, id, dis, disease){
+  size <- vcount(tree)
+  tree.r0 <- mean(degree(tree, mode = c("out")))
+  thresh <- qpois(0.99, tree.r0)
+  names_ss <- names(which(degree(tree, mode = c("out")) > thresh)) # node names of ss in tree
+  zero_name <- names(which(degree(tree, mode = c("in")) == 0)) #root node
+  # if there is a superspreader in the tree
+  if (length(names_ss) > 0){
+    num_dir_infected <- rep(0, length(names_ss))
+    num_down_infected <- rep(0, length(names_ss))
+    ss_dir_infect <- rep(FALSE, length(names_ss))
+    num_infector_infected <- rep(0, length(names_ss))
+    contexts <- rep("", length(names_ss))
+    #determine number of cases directly & indirectly caused by each superspreader, and whether they caused another superspreader directly
+    for(i in 1:length(names_ss)){
+      num_dir_infected[i] <- as.integer(degree(tree, v = names_ss[i], mode = c("out"))) 
+      num_down_infected[i] <- length(subcomponent(tree, names_ss[i], mode = c("out"))) - 1
+      # did this superspreader directly infect another superspreader
+      # names_dir_infected <- names(V(tree)[which(distances(tree, v = names_ss[i], 
+      #                                                 to = V(tree), mode = c("out")) == 1)])
+      if(! is.null(vertex_attr(tree, "cont"))){
+        contexts[i] <- vertex_attr(tree, "cont", names_ss[i])
+      }
+      # if want to look backwards to see if infected by a superspreader, use this
+      infector <- names(V(tree)[which(distances(tree, v = names_ss[i], to = V(tree),
+                                                mode = c("in")) == 1)])
+      num_infector_infected[i] <-  ifelse(identical(infector, character(0)), NA,
+                                          as.integer(degree(tree, v = infector, mode = c("out"))))
+      if(names_ss[i] == zero_name){ # if superspreader is root, don't include info on infector
+        ss_dir_infect[i] <- NA
+      }else if(infector %in% names_ss){
+        ss_dir_infect[i] <- TRUE
+      }
+      # for(j in 1:length(names_ss)){
+      #   if(i != j && names_ss[j] %in% names_dir_infected){
+      #     ss_dir_infect[i] <- TRUE
+      #   }
+      # }
+    }
+    max_down <- max(num_down_infected)
+    output <- data.frame(SS = names_ss)
+    output$Thresh <- thresh
+    output$`Direct Infected` <- num_dir_infected
+    output$`Direct Prop` <- num_dir_infected/(size - 1) # - 1?
+    output$`Indiv Downstream` <- num_down_infected
+    output$`Indiv Downstream Prop` <- num_down_infected/(size - 1) # - 1?
+    output$`Max Downstream Prop` <- max_down/(size - 1) # - 1?
+    output$`Num SS in Tree` <- length(names_ss)
+    output$`Directly Infected SS` <- ss_dir_infect
+    output$Size <- size
+    output$Dis <- dis
+    output$Disease <- disease
+    output$id <- id
+    output$`R Infector` <- num_infector_infected
+    output$Context <- contexts
+  }else{ # no superspreader in tree
+    output <- NULL # this allows for binding of rows later, but doesn't actually add a row to the data frame which is helpful
+    }
+  return(output)
+}
+```
+
+```{r prop downstream new func BY TREE}
+cum_downstream_calc <- function(tree, id){
+  tree.r0 <- round(mean(degree(tree, mode = "out")), digits = 2)
+  thresh <- qpois(0.99, tree.r0) #threshold num 2nd infs to be a SS, Lloyd-Smith et al. (2005)
+  names_ss <- names(which(degree(tree, mode = c("out")) > thresh))
+  zero_name <- names(which(degree(tree, mode = c("in")) == 0)) #root node
+  size <- vcount(tree)
+  cum_downstream <- 0
+  ss_root <- FALSE
+  
+  # if no ss then 0
+  if(length(names_ss) == 0){
+    cum_downstream <- 0
+  }
+  # if ss is root then cum downstream prop is 1
+  else if(zero_name %in% names_ss){
+    cum_downstream <- 1
+    ss_root <- TRUE
+  }
+  # now need to deal with subcomponents
+  else{
+    all_downstream_nodes <- list()
+    downstream_count <- 0
+    
+    # collect all nodes downstream of a superspreader
+    for(i in 1:length(names_ss)){
+      downstream_nodes <- names(subcomponent(tree, names_ss[i], mode = c("out"))) #includes itself!!
+      downstream_nodes <- downstream_nodes[-1]  # removing self from list
+      all_downstream_nodes <- append(all_downstream_nodes, downstream_nodes)
+    }
+    
+    for(i in 1:length(names_ss)){
+      # only if not downstream of another superspreader do we want to add proportion
+      if(!(names_ss[i] %in% all_downstream_nodes)){
+        downstream_of_i <- names(subcomponent(tree, names_ss[i], mode = c("out")))
+        downstream_count <- downstream_count + (length(downstream_of_i) - 1)
+      }
+    }
+    cum_downstream <- downstream_count/(size - 1) # still size - 1 b/c root downstream status is unknown
+  }
+
+  return(list("id" = id, "Cum Downstream" = cum_downstream, "SS Root" = ss_root))
+}
+
+```
+
+```{r dfs}
+# tibble of superspreader statistics and df to append to tree_data with inf and not inf by ss
+ss_data_list <- list()
+inf_by_ss_data_list <- list()
+downstream_data_list <- list()
+
+for(i in 1:nrow(tree_data)){
+  inf_by_ss_data_list[[i]] <- inf_by_ss_info(tree_data$tree[[i]], tree_data$id[[i]])
+  ss_data_list[[i]] <- extract_ss_info(tree_data$tree[[i]], tree_data$id[[i]], 
+                                       tree_data$Dis[[i]], tree_data$Disease[[i]])
+  downstream_data_list[[i]] <- cum_downstream_calc(tree_data$tree[[i]], tree_data$id[[i]])
+}
+ss_data <- bind_rows(ss_data_list)
+ss_data$Dis <- factor(ss_data$Dis, labels=c("Adenovir.","COVID","Ebola", "Flu.",
+         "Measles","MERS","Nipah","Norovir.","Plague",
+        "Rubella","SARS","Smallpox","Tubercul."))
+
+inf_by_ss_data <- bind_rows(inf_by_ss_data_list)
+
+downstream_data <- bind_rows(downstream_data_list)
+
+tree_data <- full_join(tree_data, inf_by_ss_data, by = "id")
+tree_data <- full_join(tree_data, downstream_data, by = "id")
+```
+
+```{r Fig 1, fig.height=4.5, fig.cap = "We compiled infectious disease transmission trees from the literature along with reported attribute information. Shown here are example trees in the database. (A) Ebola spread in different contexts [9]. (B) Measles spread in different locations [10]. (C) COVID-19 spread among age classes [11]. Primary sources for transmission trees are available in `OutbreakTrees` and listed in the Supplemental Material. `OutbreakTrees` may be accessed online at OutbreakTrees.ecology.uga.edu" }
+
+## Trees
+ebolaTree <- tree_data[which(tree_data$id=="gin.2014.ebv.1.06"), ]$tree[[1]]  # contact type
+measlesTree <- tree_data[which(tree_data$id=="jpn.2017.meas.1.00"), ]$tree[[1]] # loc
+covidTree <- tree_data[which(tree_data$id=="usa.2020.covid.6.00"), ]$tree[[1]]  # age
+
+# saving figure! 
+# PDF output
+# pdf(
+#  file = "./msfigs/fig1.pdf",
+#  title = "Figure 1", # displayed in title bar of PDF Reader
+#  width = figure.widths['page'], # full width, in inches
+#  height = figure.heights['page']*.5, # 70% of full height, in inches
+#  family = font.family, # defined above
+#  pointsize = font.size.normal # default (normal) size of text (in points). Defined above.
+# )
+
+## plot settings
+set.seed(123456)
+par(mfrow=c(1,3), mar=c(0.1,0.1,0.1,0.1), xpd=TRUE)
+## ebola plot
+Groups <- levels(factor(V(ebolaTree)$cont))
+pal <- RColorBrewer::brewer.pal(length(Groups), "Dark2")
+cols <- pal[as.numeric(as.factor(vertex_attr(ebolaTree, "cont")))]
+plot(ebolaTree, vertex.size=3, vertex.label="", edge.arrow.size=.15, 
+     edge.width=.2,edge.color="black",
+     vertex.frame.color=cols, vertex.color = cols,
+     ann=FALSE, cex=font.scales['XL'])
+mtext("Ebola \n(Guinea, 2014)", line=-4)
+mtext("A", line=-2, at=-1, font=2)
+legend("bottom", bty = "n", pch = 19, inset = c(0,0.1),
+       legend=Groups, cex = font.scales['XL'], ncol=2,
+       col=pal, border=NA, title="Context: ")
+
+## measles plot
+Groups <- levels(factor(V(measlesTree)$loc))
+pal <- RColorBrewer::brewer.pal(length(Groups), "Accent")
+cols <- pal[as.numeric(as.factor(vertex_attr(measlesTree, "loc")))]
+plot(measlesTree, vertex.size=3, vertex.label="", edge.arrow.size=.15, 
+     edge.width=.2,edge.color="black",
+     vertex.frame.color=cols, vertex.color = cols,
+     ann=FALSE, cex=font.scales['XL'])
+mtext("Measles \n(Japan, 2017)", line=-4)
+mtext("B", line=-2, at=-1, font=2)
+legend("bottom", bty = "n", pch = 19, inset = c(0,0.1),
+       legend=Groups, cex=font.scales['XL'], ncol=2,
+       col=pal, border=NA, title="Location: ")
+
+## covid plot
+x <- as.numeric(V(covidTree)$age) 
+y <- case_when(x <=15~"1-15",
+                x>15&x<=40~"16-40",
+                x>40~"40+",
+                is.na(x)~"Unk")
+Groups <- levels(factor(y))
+pal <- c((RColorBrewer::brewer.pal(8, "PuBuGn"))[c(4,5,8)], "#000000")
+cols <- pal[as.numeric(as.factor(y))]
+plot(covidTree, vertex.size=3, vertex.label="", edge.arrow.size=.15, 
+     edge.width=.2,edge.color="black",
+     vertex.frame.color=cols, vertex.color = cols,
+     ann=FALSE, cex=font.scales['XL'])
+mtext("C", line=-2, at=-1, font=2)
+mtext("COVID-19 \n(United States, 2020)", line=-4)
+legend("bottom", bty = "n", pch = 19, inset = c(0,0.1),
+       legend=Groups, cex=font.scales['XL'] ,ncol=2,
+       col=pal, border=NA, title="Age: ")
+
+# close PDF file
+# invisible(dev.off())
+
+```
+
+```{r summ stats, echo = FALSE, include = FALSE}
+num_trees <- nrow(tree_data)
+num_trees_by_dis <- tree_data %>% group_by(Disease) %>% 
+  summarize(count = n()) %>% 
+  dplyr::rename(`Number of Trees` = count)
+#influenzas double counted so do by Dis
+num_trees_by_dis_2 <- tree_data %>% group_by(Dis) %>% 
+  summarize(count = n()) %>% 
+  dplyr::rename(`Number of Trees` = count)
+num_dis <- nrow(num_trees_by_dis_2)
+num_covid_trees <- (num_trees_by_dis %>% filter(Disease == "COVID-19"))[[2]]
+pct_covid_trees <- round(num_covid_trees/num_trees, 2) * 100
+max_size <- max(tree_data$Size)
+```
+
+```{r Fig 2, fig.width=6, fig.height=6,fig.cap = "Characteristics of transmission trees in `OutbreakTrees`. (A) Tree size varies from 2 to 286 with a median of 3 and most trees represent outbreaks taking place in the past 20 years. (B) The largest trees are from H1N1 and SARS outbreaks while the highest proportion of trees in the database are from outbreaks of COVID-19, followed by adenovirus and Ebola. Tree size axes in both plots are shown on a log10 scale to better illustrate variation in medium-sized trees."}
+
+size_dist <- tree_data %>% 
+  ggplot(aes(x = Size)) +
+  geom_histogram(boundary = 0, bins=12) +
+  scale_x_log10(limits=c(1.1, 900), breaks=c(3,10,30,100,300)) +  
+  labs(x="Tree Size",y="Number of Trees", title = "A") +
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black"))
+
+year_dist <- tree_data %>%filter(Size>=8) %>%
+  mutate(Year=as.numeric(substr(Year, 1, 4))) %>%
+  ggplot(aes(x=Year)) + 
+  geom_histogram(boundary = 0) + labs(y="Trees") +
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=10), 
+        axis.text=element_text(size=8), 
+        axis.title=element_text(size=10,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black"))
+
+stat_box_data <- function(y) {
+  return( 
+    data.frame(
+      y = .1,
+      label = paste0('n=', length(y))
+    )
+  )
+}
+
+
+path_size_dist <- tree_data %>%
+  ggplot(aes(fct_reorder(full_Dis, Size), Size, fill=Dis)) + 
+  geom_boxplot() +
+  coord_flip() +
+  scale_y_log10(limits=c(1, 900), breaks=c(3,10,30,100,300), expand = c(0,0.05)) +  
+  fillScale +
+  stat_summary(
+    fun.data = stat_box_data, 
+    geom = "text", 
+    position = position_nudge(x=0, y=-0.1),
+    hjust = 0,
+    vjust = 0.5
+  ) +
+  theme(legend.position = "none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black")) +
+  labs(y="Tree Size", x="", title="B")
+
+num_trees_by_dis_2 <- num_trees_by_dis_2 %>% 
+  arrange(desc(`Number of Trees`)) %>%
+  mutate(prop = `Number of Trees` / sum(num_trees_by_dis_2$`Number of Trees`) *100) %>%
+  mutate(chart_label = ifelse(prop > 6, as.character(Dis), ""),
+         ypos = 0,
+         angle = 0,
+         nudge_x = 0,
+         nudge_y = 0,
+         text_size = 0)
+
+#covid
+num_trees_by_dis_2$ypos[[1]] <- 90; num_trees_by_dis_2$text_size[[1]] <- 4
+#adenovir
+num_trees_by_dis_2$ypos[[2]] <- 268; num_trees_by_dis_2$angle[[2]] <- 20; num_trees_by_dis_2$nudge_y[[2]] <- 0; num_trees_by_dis_2$nudge_x[[2]] <- 0.14; num_trees_by_dis_2$text_size[[2]] <- 2.5
+#ebola
+num_trees_by_dis_2$ypos[[3]] <- 290; num_trees_by_dis_2$nudge_x[[3]] <- 0.2; num_trees_by_dis_2$text_size[[3]] <- 2.5
+
+num_trees_by_dis_2$Dis <- factor(num_trees_by_dis_2$Dis, levels = rev(as.character(num_trees_by_dis_2$Dis)))
+
+pie_chart <- num_trees_by_dis_2 %>% 
+  ggplot(aes(x = "", y = `Number of Trees`, fill = Dis)) + 
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar("y", start = 0) +
+  fillScale +
+  theme_void() +
+  labs(x = NULL, y = NULL, fill = NULL, title = "Proportion of Trees \nby Disease") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 10, hjust = 0.5)) +
+  geom_text(aes(y = ypos, label = chart_label, angle = angle), 
+            nudge_x = num_trees_by_dis_2$nudge_x, nudge_y = num_trees_by_dis_2$nudge_y, 
+            color = "black", size=num_trees_by_dis_2$text_size)
+
+size_dist <- size_dist + annotation_custom(ggplotGrob(year_dist), 
+                              xmin = 1.57, xmax = 2.94, 
+                              ymin = 13, ymax = 217)
+
+path_size_dist <- path_size_dist + annotation_custom(ggplotGrob(pie_chart),
+                                                     xmin = 0, xmax = 10,
+                                                     ymin = -1, ymax = 6)
+
+# saving figure!
+# pdf(
+#  file = "./msfigs/fig2.pdf",
+#  title = "Figure 2", # displayed in title bar of PDF Reader
+#  width = figure.widths['page'], # full width, in inches
+#  height = figure.heights['page']*.7, # 70% of full height, in inches
+#  family = font.family, # defined above
+#  pointsize = font.size.normal # default (normal) size of text (in points). Defined above.
+# )
+
+cowplot::plot_grid(size_dist, path_size_dist,
+                   ncol=1, align = "v", axis="l", rel_heights = c(1, 2))
+# close PDF file
+# invisible(dev.off())
+
+
+# g2 <- ggplotGrob(size_dist)
+# g3 <- ggplotGrob(path_size_dist)
+# 
+# g <- rbind(g2, g3, size = "first")
+# g$widths <- unit.pmax(g2$widths, g3$widths)
+# grid.newpage()
+# grid.draw(g)
+
+```
+ 
+```{r att df, echo = FALSE}
+## attribute dataframe
+atts <- c()
+for(i in 1:nrow(tree_data)){
+  tree <- tree_data[i, ]$tree[[1]]
+  atts[[i]] <- vertex_attr_names(tree)
+}
+atts <- str_split(stringi::stri_join_list(atts, sep=",",collapse = ","), ",")
+atts <- data.frame(sort(table(atts[[1]]), decreasing = T)[-1]) 
+atts %<>% filter(Freq>=20, Var1!="attr")
+atts <- cbind(c("Transmission context","Symptom Onset", "Sex","Age","Location",
+                "Quarantine Status", "Occupation", "Survival"), atts)
+colnames(atts) <- c("Attribute","Database Code", "Number of Trees")
+kable(filter(atts, `Number of Trees`>=20), caption="List of most common attributes for individuals in trees.")
+```
+
+```{r dp na, echo = FALSE}
+num_dp_na <- nrow(tree_data %>% filter(is.na(DispParm)))
+
+med_cum_downstream <- median(tree_data$`Cum Downstream`)
+```
+
+```{r Fig 3, fig.cap="The importance of superspreading across diseases measured in three ways. (A) Larger outbreaks tend to have more superspreaders. Points are jittered vertically and y-axis is on a log10 scale for visual aid. (B) Dispersion parameter ($k$) of a negative binomial distribution fit to the offspring distribution of trees by disease. Vertical line and value printed in each facet shows the median $k$ for each disease. (C) Cumulative proportion of cases directly or indirectly attributed to superspreaders in a tree by disease. Only trees with 8 or more cases were used in these analyses with other cutoffs shown in S1 Fig and S2 Fig."}
+
+med.k = tree_data %>% filter(Size>=8) %>% #change
+  group_by(Dis) %>%
+  summarise(med.k=round(median(DispParm, na.rm=TRUE), 2)) %>% #rounding for sake of figure
+  arrange(med.k)
+
+
+tree_data %>% 
+  filter(Size >= 8) %>%  #change
+  mutate(shp=case_when(Dis=="covid"~"yes",
+                      Dis!="covid"~"no")) %>%
+  ggplot() +
+  geom_jitter(aes(x = `Num SS`, y = Size, col = Dis, shape=shp),size=3, width = 0.25,height = 0) +
+  geom_smooth(aes(x=`Num SS`,  y=Size), col="black", method = "lm", formula = y ~ x + I(x^2), size = 1) + 
+  colScale + 
+  scale_y_log10()+
+  labs(x="Number of Superspreaders",y="Tree Size", 
+       col="Disease", title="A")  + 
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black")) -> p1
+
+## Kruskal Wallis COVID vs SARS and COVID vs MERS Inset Boxplot
+dat <- tree_data%>%filter(Dis%in%c("COVID","SARS","MERS")) %>% select(Dis,Size,`Num SS`)
+test=pairwise.wilcox.test(dat$`Num SS`, dat$Dis,
+                 p.adjust.method = "BH")
+my_comparisons <- list( c("SARS", "COVID"), c("COVID", "MERS"))
+ggboxplot(dat, x = "Dis", y = "Num SS", xlab="",ylab="Number of Superspreaders",
+          color = "Dis", order = c("MERS","COVID","SARS")) + 
+  stat_compare_means(method="wilcox.test", label.y = c(6, 3), ref.group = "COVID", label="p.signif",
+                     comparisons = my_comparisons) + # Add pairwise comparisons p-value
+  colScale +
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black")) -> compPlot
+
+tree_data %>% 
+  mutate(Dis=factor(Dis, as.character(med.k$Dis))) %>%
+  filter(Size >= 8) %>% #change 
+  ggplot(aes(x=`DispParm`, fill = Dis)) +
+  geom_histogram() + 
+  geom_text(data = med.k, aes(x = 150, y = 3.5, label = med.k), size = 3, inherit.aes = FALSE) + 
+  fillScale + 
+  scale_y_continuous(breaks=c(0,5)) +
+  scale_x_log10(breaks=c(.01, .1, 1, 10, 100),
+                labels=c("0.01", "0.1", "1", "10", "100")) + 
+  labs(x="Dispersion Parameter (k)",y="Number of Trees", title="B")  + 
+  facet_grid(Dis~.) + 
+  geom_vline(data=med.k, aes(xintercept=med.k))+
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = 8, color="Black")) -> p2
+
+tree_data %>%
+  filter(Size >= 8) %>% #change
+  #mutate(Dis=factor(Dis, as.character(med.k$Dis))) %>%
+  ggplot(aes(x = reorder(Dis, `Cum Downstream`, 
+                         FUN = median), y = `Cum Downstream`, 
+             fill = Dis)) + 
+  geom_boxplot(aes(), col = "black") +
+  fillScale +
+  labs(x = "", y = "Cum. Prop. Downstream of Superspreaders",title="C") +
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text.x=element_text(size=txs, angle = 55, hjust=1.1), 
+        axis.text.y=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black"))  -> p3
+
+g1 <- ggpubr::ggarrange(p1, p3, ncol=1, align="v")
+
+# saving figure! 
+# PDF output
+# pdf(
+#  file = "./msfigs/fig3.pdf",
+#  title = "Figure 3", # displayed in title bar of PDF Reader
+#  width = figure.widths['page'], # full width, in inches
+#  height = figure.heights['page']*.9, # 70% of full height, in inches
+#  family = font.family, # defined above
+#  pointsize = font.size.normal # default (normal) size of text (in points). Defined above.
+# )
+
+gridExtra::grid.arrange(g1,  p2,
+                        layout_matrix = rbind(c(1, 2),
+                                              c(1, 2))
+)
+
+# close PDF file
+# invisible(dev.off())
+```
+
+```{r Fig 4, fig.height=9, fig.width=9, fig.cap = "Importance of early spreading events to tree size across diseases. (A) The frequency (top right) and effect of trees sparked by superspreaders on tree size. Red text indicates results of Kruskal-Wallis test with Bonferroni-Holm correction of differences in tree size by superspreader sparking status (only P-values<0.05 shown). (B) Across diseases there is a positive relationship between standardized tree size and proportion of cases in the first generation. Standardized tree size, $|S|$, is calculated by $|S|=S^{1/(G-1)}$ where $G$ is the number of generations in the tree and $S$ is tree size. Lines show linear regression with results in red text (only coefficients with P-values<0.05 shown). Note: y-axis on log10 scale. Trees sparked by superspreaders are represented by triangles, trees not sparked by superspreaders are represented by circles. Points have been jittered for clarity."}
+
+# scientific notation for plot
+changeSciNot <- function(n) {
+  output <- format(n, scientific = TRUE,digits = 3) #Transforms the number into scientific notation even if small
+  output <- sub("e", "x10^", output) #Replace e with 10^
+  output <- sub("\\+0?", "", output) #Remove + symbol and leading zeros on expoent, if > 1
+  output <- sub("-0?", "-", output) #Leaves - symbol but removes leading zeros on expoent, if < 1
+  output
+}
+
+# dis w more than 4
+foo <- num_trees_by_dis %>% filter(`Number of Trees`>4)
+
+# if we want to add slopes, r2 to plot, not sure it's needed
+lm_eqn = function(df){
+    m = lm(y ~ x, df);
+    # eq <- substitute("P="~p, 
+    #      list(a = format(coef(m)[[1]], digits = 2), 
+    #           b = format(coef(m)[[2]], digits = 2), 
+    #           c.low=format(confint(m)[2,1], digits = 1),
+    #           c.hi=format(confint(m)[2,2], digits = 1),
+    #          r2 = format(round(summary(m)$r.squared,2), digits = 3),
+    #          p=format(summary(m)$coefficients[2,4], digits=3)))
+    # as.character(as.expression(eq));   
+    return(format(summary(m)$coefficients[2,4], digits=3))
+}
+
+
+## Number trees sparked by superspreader / number trees in database
+## For diseases with more than 5 trees
+fooDat <- ss_data %>%
+  group_by(id) %>%
+  summarise(SS_root=any(is.na(`Directly Infected SS`))) %>%
+  full_join(tree_data, by="id") 
+
+tree_data <- tree_data %>% 
+    mutate(corrected_tree_size = (Size ^ (1/Generations))) # generation 0 ("P0") isn't included in gen count
+  
+plotData <- tree_data %>% 
+  filter(Disease %in% as.character(foo$Disease)|Disease %in% c("H1N1","H1N1, H3N2","H7N9")) %>%
+  select(corrected_tree_size, `Prop Gen1`, Dis) %>%
+  dplyr::rename(x=corrected_tree_size, y=`Prop Gen1`)
+
+eq <- plyr::ddply(plotData, "Dis" , lm_eqn)%>%filter(V1<0.05)%>%
+  mutate(V1=case_when(V1<0.001~paste0("P < 0.001"),
+                      V1<0.05~paste0("P < 0.05"),
+                      V1>=0.05~paste0("")))
+#eq$Sig <- c(NA,"*","*",NA,"*",NA,NA,"*",NA) # by hand for now... should figure out automated
+
+
+
+foo3 <- fooDat %>% 
+  filter(Disease %in% as.character(foo$Disease)|Disease %in% c("H1N1","H1N1, H3N2","H7N9")) %>%
+  group_by(Dis,SS_root) %>%
+  summarise(n=n()) %>%
+  spread(SS_root, n) %>%
+  dplyr::rename(yes=`TRUE`, no=`FALSE`,no_ss=`<NA>`) %>%
+  mutate(yes=ifelse(is.na(yes),0,yes), 
+         not_sss=sum(no_ss,no,na.rm=TRUE),
+         tot=sum(yes, not_sss,na.rm=TRUE),
+         lab=paste0(yes,"/",tot)) 
+
+# kruskal wallis rank test with holm correction
+pvs <- fooDat %>%
+  filter(Dis%in%as.character(foo3$Dis)) %>%
+  filter(!Dis %in% c("Hep. A","Norovir."))%>%
+  mutate(SS_root=ifelse(is.na(SS_root), FALSE, SS_root)) %>%
+  select(SS_root, Dis, Size) %>% 
+  group_by(Dis)%>%
+  summarise(p.value = as.numeric(format(kruskal.test(Size ~ SS_root)$p.value,
+                             scientific=FALSE, digits = 3))) %>%
+  mutate(p.value.adj=p.adjust(p.value, method = "holm", n=11)) %>%
+  mutate(p.value.adj.plot=case_when(p.value.adj<0.001~paste0("P < 0.001"),
+                        p.value.adj<0.05~paste0("P < 0.05"),
+                        p.value.adj>=0.05~paste0("")))
+  # mutate(signif=case_when(p.value<.001~"***",
+  #                         p.value<0.01~"**",
+  #                         p.value<0.05~"*",
+  #                         p.value>=.05~"")) %>%
+  # mutate(signif.adj=case_when(p.value.adj<.001~"***",
+  #                         p.value.adj<0.01~"**",
+  #                         p.value.adj<0.05~"*",
+  #                         p.value.adj>=.05~""))
+
+# changed shape in this plot too so that plots agree
+fooDat %>%
+  filter(Dis%in%as.character(foo3$Dis)) %>%
+  mutate(SS_root=ifelse(is.na(SS_root), FALSE, SS_root)) %>%
+  ggplot(aes(x=factor(SS_root, labels=c("No", "Yes")),y=Size,col=Dis)) +
+  geom_jitter(aes(shape = SS_root), size=2, height = .1) +
+  geom_boxplot(aes(x=factor(SS_root, labels=c("No", "Yes")), y=Size),
+               col="black", alpha=.5) +
+  geom_text(data=pvs, aes(x=0.5, y=250,  hjust = 0,
+                          label=p.value.adj.plot), col="red") +
+  geom_text(data = foo3, aes(label = lab,  x = 2.2, y = 260),
+            col="black", parse = TRUE, hjust = 0.5) +
+  colScale +
+  scale_y_log10()+
+  facet_wrap(~Dis) +
+  labs(y="Tree Size", x="Sparked by Superspreader", title="A") +
+  theme(legend.position="none",
+        plot.title = element_text(face="bold", size=16),
+        axis.text.x=element_text(size=txs),
+        axis.text.y=element_text(size=txs),
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        strip.text = element_text(size = 10, color="Black")) -> p2
+
+fooDat %>% 
+  filter(Disease %in% as.character(foo$Disease)|Disease %in% c("H1N1","H1N1, H3N2","H7N9")) %>%
+  mutate(SS_root = ifelse(is.na(SS_root), FALSE, SS_root)) %>%
+  mutate(corrected_tree_size = (Size ^ (1/Generations))) %>% # generation 0 ("P0") isn't included in gen count
+  ggplot(aes(y = corrected_tree_size, x = `Prop Gen1`, col = Dis)) +
+  geom_jitter(aes(shape = SS_root), size=3, height=.1) +
+  geom_smooth(method="lm", se=F, col="black") +
+  scale_y_log10() +
+  scale_x_continuous(breaks=c(0,.25,.5,.75,1),labels=c("0",".25",".5",".75","1"))+
+  facet_wrap(~Dis) + # add slope in line below by adding to lm function above
+  geom_text(data=eq,aes(y = 260, x = 0, label=V1, hjust=0), inherit.aes=FALSE, col="red", nudge_y = -0.75) +
+  #geom_text(data=eq,aes(y = 100, x = .96, label=Sig), inherit.aes=FALSE, size=7, col="red") +
+  colScale+
+  labs(x="Proportion of Cases in First Generation", y="Standardized Tree Size, |S|", title = "B") +
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text.x=element_text(size=txs, angle = 0, hjust=0.5), 
+        axis.text.y=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = 10, color="Black")) -> p1
+
+
+# PDF output
+# pdf(
+#  file = "./msfigs/fig4.pdf",
+#  title = "Figure 4", # displayed in title bar of PDF Reader
+#  width = figure.widths['page'], # full width, in inches
+#  height = figure.heights['page']*1, # 70% of full height, in inches
+#  family = font.family, # defined above
+#  pointsize = font.size.normal # default (normal) size of text (in points). Defined above.
+# )
+
+gridExtra::grid.arrange(p2, p1, nrow=2)
+
+# close PDF file
+# invisible(dev.off())
+```
+
+```{r Fig 5, fig.cap = "Characteristics of individuals infecting superspreaders. (A) The proportion of superspreaders infected by other superspreaders. Numbers above bars indicate the number of superspreaders for which there was sufficient information about their infector to calculate the proportion. (B) Ratio of observed to expected superspreader-superspreader dyads in trees with more than one superspreader. The expected number of dyads is calculated by $s (s - 1)/S$, where $s$ is the number of superspreaders in the tree and $S$ is tree size.", fig.height = 8, fig.width = 6}
+
+# proportion ss that directly infect another ss, divide sum of TRUEs over sum of TRUEs and FALSEs for each pathogen
+direct_cause_ss <- ss_data %>% 
+  filter(! is.na(`Directly Infected SS`)) %>% # remove ss that are root nodes and so no info on whether or not infected by another ss
+  group_by(Dis) %>% 
+  summarise(direct = sum(`Directly Infected SS` == TRUE),
+         not_direct = sum(`Directly Infected SS` == FALSE)) %>%
+  mutate(prop_direct = direct/(not_direct + direct),
+         total_ss = direct + not_direct)%>%
+  arrange(desc(prop_direct))
+
+direct_cause_ss %>% 
+  filter(Dis!="Tubercul.") %>%
+  ggplot(aes(x=fct_reorder(Dis, prop_direct, .desc=TRUE), 
+             y=prop_direct, fill=Dis))+
+  geom_bar(stat="identity") +
+  fillScale +
+  geom_text(aes(x = fct_reorder(Dis, prop_direct, .desc=TRUE), 
+                y = (prop_direct+.05), label = total_ss), inherit.aes = FALSE) +
+  labs(y="Prop. Superspreaders Infected \n by Superspreaders", x="", title = "A") + ylim(0,1)+
+  # scale_y_continuous(breaks = c(0, 0.25, 0.5, 0.75, 1), 
+  #                    labels = c("0", "0.25", "0.5", "0.75", "1")) +
+  theme(legend.position = "none",
+        plot.title = element_text(face="bold", size=16),
+        axis.text.x=element_text(size=10, angle = 35, hjust=1), 
+        axis.text.y=element_text(size=txs), 
+        axis.title=element_text(size=10,face="bold"),
+        legend.title = element_text(size=10),  #txs 
+        legend.text = element_text(size=10), #txs
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black")) -> propPlot
+
+ss_dyads <- tree_data %>% mutate(ss_dyad_ratio = `Excess SS Dyads`/`Obs SS Dyads`,
+                                 rat_test = `Obs SS Dyads`/`Exp SS Dyads`) %>% 
+  select(id, Dis, R0:`Prop Gen1`, `SS Success Rate`:`Excess SS Dyads`, ss_dyad_ratio, rat_test) %>%
+  filter(`Num SS` > 1) %>%  # ratio is NaN b/c observed = 0 otherwise
+  arrange(desc(rat_test))
+
+perc_lt_1 <- round(nrow(ss_dyads %>% filter(rat_test < 1)) / nrow(ss_dyads), 2) * 100
+perc_gte_1 <- round(nrow(ss_dyads %>% filter(rat_test >= 1)) / nrow(ss_dyads), 2) * 100
+
+ss_dyads %>% 
+  mutate(rank = row_number(-rat_test),
+         rat_test = rat_test + 1) %>% 
+  ggplot(aes(x = rat_test, y = rank, col = Dis)) +
+  geom_point(size = 3) +
+  scale_x_log10(breaks = c(1, 2, 11), labels = c("0", "1", "10")) +
+  scale_y_continuous(breaks = c(), labels = c("")) +
+  geom_vline(xintercept = 2, col = "red", linetype = "dashed", alpha = 0.8) +
+  colScale +
+  labs(x = "Ratio of Observed to Expected \nSuperspreader to Superspreader Dyads", y = "Tree", title="B") +
+  theme(legend.position = "right",
+        plot.title = element_text(face="bold", size=16),
+        axis.text.x=element_text(size=txs, angle = 0, hjust=.5), 
+        axis.text.y=element_text(size=txs), 
+        axis.title=element_text(size=10,face="bold"),
+        legend.title = element_text(size=10),  #txs 
+        legend.text = element_text(size=10), #txs
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black")) +
+  guides(color=guide_legend(title="Disease")) +
+  annotate(geom = "text", x = 1.3, y = 4, label = paste("Fewer dyads\nthan expected\n", perc_lt_1, "%"), color = "black", size = 2.7) +
+  annotate(geom = "text", x = 3, y = 4, label = paste("More dyads\nthan expected\n", perc_gte_1, "%"), color = "black", size = 2.7) -> dyadPlot
+
+# PDF output
+# pdf(
+#  file = "./msfigs/fig5.pdf",
+#  title = "Figure 5", # displayed in title bar of PDF Reader
+#  width = figure.widths['page'], # full width, in inches
+#  height = figure.heights['page']*.7, # 70% of full height, in inches
+#  family = font.family, # defined above
+#  pointsize = font.size.normal # default (normal) size of text (in points). Defined above.
+# )
+
+#with cowplot
+cowplot::plot_grid(propPlot, dyadPlot, ncol=1, align = "v", axis="l", rel_heights = c(1, 1))
+
+# close PDF file
+# invisible(dev.off())
+```
+
+```{r Fig 6, fig.cap = "Number of superspreaders infected in various transmission contexts. Shared buildings included worker dormitories and hotels. The category ``other'' includes a spillover event of MERS to a camel owner.", fig.height = 4}
+# possible categories: unknown, travel, household, hospital, community (religious, friend, fitness class), shared building (hotel, apartment)
+
+cont_ss_data <- bind_cols(ss_data, Context.Cat = rep("", nrow(ss_data)))
+for(i in 1:nrow(cont_ss_data)){
+  cont <- tolower(cont_ss_data$Context[[i]])
+  if(identical(cont, "") || "unknown" %in% cont || is.na(cont) || identical(cont, "none")){
+    cont_ss_data$Context.Cat[[i]] <- "unknown"
+    #cont_ss_data[[16, i]] <- "unknown"
+  }else if(grepl("hotel", cont) || grepl("building", cont)){
+    cont_ss_data$Context.Cat[[i]] <- "shared building"
+  }else if(grepl("family", cont) || grepl("household", cont) || grepl("sister", cont) ||
+           grepl("relative", cont)){ #not brother bc overlap with religious
+    cont_ss_data$Context.Cat[[i]] <- "household"
+  }else if(grepl("travel", cont) || grepl("train", cont) || grepl("trip", cont) ||
+           grepl("imported", cont) || grepl("in italy", cont) || grepl("army", cont) ||
+           grepl("airport", cont)){ 
+          # army bc recruit arrived in Kauai from California
+          # airport worker spread, but assuming infected by a traveler as opposed to local spread
+    cont_ss_data$Context.Cat[[i]] <- "travel"
+  }else if(grepl("hospital", cont) || grepl("ward", cont) || grepl("healthcare", cont)){
+    cont_ss_data$Context.Cat[[i]] <- "hospital"
+  }else if(grepl("friend", cont) || grepl("neighbor", cont) || grepl("religious", cont) ||
+           grepl("fitness", cont) || grepl("community", cont) || grepl("work", cont) ||
+           grepl("local", cont) || grepl("party", cont) || grepl("dinner", cont) ||
+           grepl("church", cont)){ 
+    cont_ss_data$Context.Cat[[i]] <- "gathering"
+  }else if(grepl("camel", cont)){
+    cont_ss_data$Context.Cat[[i]] <- "other"
+  }
+}
+
+cont_ss_data$Context.Cat <- as.factor(cont_ss_data$Context.Cat)
+cont_ss_data_known <- cont_ss_data %>% filter(Context.Cat != "unknown")
+
+spec_myColors <- colorspace::rainbow_hcl(length(unique(cont_ss_data_known$Context.Cat)))
+spec_fill <- scale_fill_manual(name = "Context", values = spec_myColors)
+
+
+# PDF output
+# pdf(
+#  file = "./msfigs/fig6.pdf",
+#  title = "Figure 6", # displayed in title bar of PDF Reader
+#  width = figure.widths['page'], # full width, in inches
+#  height = figure.heights['page']*.5, # 70% of full height, in inches
+#  family = font.family, # defined above
+#  pointsize = font.size.normal # default (normal) size of text (in points). Defined above.
+# )
+
+cont_ss_data_known %>% 
+  group_by(Dis, Context.Cat) %>% 
+  summarise(counts = n()) %>% 
+  #filter(counts > 1) %>% 
+  mutate(dis_total = sum(counts),
+         prop_cont = counts/dis_total,
+         Context.Cat=factor(Context.Cat,levels= c(levels(cont_ss_data_known$Context.Cat)[levels(cont_ss_data_known$Context.Cat)!="other"],"other"))) %>% 
+  ggplot(aes(fill = Context.Cat, y = counts, x = Dis)) +
+  geom_bar(position ="stack", stat = "identity") +
+  spec_fill +
+  #scale_fill_brewer(palette = "Set2") +
+  theme(legend.position = "right",
+        plot.title = element_text(face="bold", size=10),
+        axis.text.x=element_text(size=txs, angle = 35, hjust=1), 
+        axis.text.y=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=12),  #txs 
+        legend.text = element_text(size=10), #txs
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black")) +
+  labs(x = "Disease", y = "Number of Superspreaders Infected\nin Context", fill = "Context")
+
+# close PDF file
+# invisible(dev.off())
+
+cont_totals <- cont_ss_data_known %>% 
+  group_by(Context.Cat) %>% 
+  summarise(counts = n()) %>% 
+  arrange(desc(counts))
+
+```
+
+```{r superspreader-cutoff-5, fig.path = "supplemental-figs/", fig.cap="Trends in superspreading importance do not differ considerably with cutoff of 5 or more cases. (A) Larger outbreaks tend to have more superspreaders. Points are jittered vertically and y-axis is on a log10 scale for visual aid. (B) Dispersion parameter ($k$) of a negative binomial distribution fit to the offspring distribution of trees by disease. Vertical line and value printed in each facet shows the median $k$ for each disease. (C) Cumulative proportion of cases directly or indirectly attributed to superspreaders in a tree by disease.", echo = FALSE, include = FALSE, eval = FALSE}
+med.k = tree_data %>% filter(Size>=5) %>% #change
+  group_by(Dis) %>%
+  summarise(med.k=median(DispParm, na.rm=TRUE)) %>%
+  arrange(med.k)
+
+
+tree_data %>% 
+  filter(Size >= 5) %>%  #change
+  mutate(shp=case_when(Dis=="covid"~"yes",
+                      Dis!="covid"~"no")) %>%
+  ggplot() +
+  geom_jitter(aes(x = `Num SS`, y = Size, col = Dis, shape=shp),size=3, width = 0.25,height = 0) +
+  geom_smooth(aes(x=`Num SS`,  y=Size), col="black", method = "lm", formula = y ~ x + I(x^2), size = 1) + 
+  colScale + 
+  scale_y_log10()+
+  labs(x="Number of Superspreaders",y="Tree Size", 
+       col="Disease", title="A")  + 
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black")) -> p1
+
+## Kruskal Wallis COVID vs SARS and COVID vs MERS Inset Boxplot
+dat <- tree_data%>%filter(Dis%in%c("COVID","SARS","MERS")) %>% select(Dis,Size,`Num SS`)
+test=pairwise.wilcox.test(dat$`Num SS`, dat$Dis,
+                 p.adjust.method = "BH")
+my_comparisons <- list( c("SARS", "COVID"), c("COVID", "MERS"))
+ggboxplot(dat, x = "Dis", y = "Num SS", xlab="",ylab="Number of Superspreaders",
+          color = "Dis", order = c("MERS","COVID","SARS")) + 
+  stat_compare_means(method="wilcox.test", label.y = c(6, 3), ref.group = "COVID", label="p.signif",
+                     comparisons = my_comparisons) + # Add pairwise comparisons p-value
+  colScale +
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black")) -> compPlot
+
+tree_data %>% 
+  mutate(Dis=factor(Dis, as.character(med.k$Dis))) %>%
+  filter(Size >= 5) %>% #change 
+  ggplot(aes(x=`DispParm`, fill = Dis)) +
+  geom_histogram() + 
+  geom_text(data = med.k, aes(x = 150, y = 3.5, label = med.k), size = 3, inherit.aes = FALSE) + 
+  fillScale + 
+  scale_y_continuous(breaks=c(0,5)) +
+  scale_x_log10() + 
+  # scale_x_log10(breaks=c(.01, .1, 1, 10, 100), labels=c("0.01", "0.1", "1", "10", "100"))
+  labs(x="Dispersion Parameter (k)",y="Number of Trees", title="B")  + 
+  facet_grid(Dis~.) + 
+  geom_vline(data=med.k, aes(xintercept=med.k))+
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text=element_text(size=13), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = 6, color="Black")) -> p2
+
+tree_data %>%
+  filter(Size >= 5) %>% #change
+  #mutate(Dis=factor(Dis, as.character(med.k$Dis))) %>%
+  ggplot(aes(x = reorder(Dis, `Cum Downstream`, FUN = median), y = `Cum Downstream`, fill = Dis)) + 
+  geom_boxplot(aes(), col = "black") +
+  fillScale +
+  labs(x = "", y = "Cum Prop. Downstream of Superspreaders",title="C") +
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text.x=element_text(size=txs, angle = 60, hjust=1.1), 
+        axis.text.y=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black"))  -> p3
+
+# saving figure! 
+# PDF output
+# pdf(
+#  file = "./supplemental-figs/S1Fig.pdf",
+#  title = "S1Fig", # displayed in title bar of PDF Reader
+#  width = figure.widths['page'], # full width, in inches
+#  height = figure.heights['page']*.9, # 70% of full height, in inches
+#  family = font.family, # defined above
+#  pointsize = font.size.normal # default (normal) size of text (in points). Defined above.
+# )
+# 
+# g1 <- ggpubr::ggarrange(p1, p3, ncol=1, align="v")
+# gridExtra::grid.arrange(g1,  p2,
+#                         layout_matrix = rbind(c(1, 2),
+#                                               c(1, 2))
+# )
+# 
+# # close PDF file
+# invisible(dev.off())
+```
+
+```{r kruskal wallis supp, eval = FALSE}
+# pdf(
+#  file = "./supplemental-figs/S3Fig.pdf",
+#  title = "S3Fig", # displayed in title bar of PDF Reader
+#  width = figure.widths['page'], # full width, in inches
+#  height = figure.heights['page']*.6, # 70% of full height, in inches
+#  family = font.family, # defined above
+#  pointsize = font.size.normal # default (normal) size of text (in points). Defined above.
+# )
+# 
+# compPlot
+# 
+# # close PDF file
+# invisible(dev.off())
+```
+
+```{r superspreader-cutoff-10, fig.path = "supplemental-figs/", fig.cap = "Trends in superspreading importance do not differ considerably with cutoff of 10 or more cases. (A) Larger outbreaks tend to have more superspreaders. Points are jittered vertically and y-axis is on a log10 scale for visual aid. (B) Dispersion parameter ($k$) of a negative binomial distribution fit to the offspring distribution of trees by disease. Vertical line and value printed in each facet shows the median $k$ for each disease. (C) Cumulative proportion of cases directly or indirectly attributed to superspreaders in a tree by disease.", echo = FALSE, include = FALSE, eval = FALSE}
+
+med.k = tree_data %>% filter(Size>=10) %>% #change
+  group_by(Dis) %>%
+  summarise(med.k=median(DispParm, na.rm=TRUE)) %>%
+  arrange(med.k)
+
+
+tree_data %>% 
+  filter(Size >= 10) %>%  #change
+  mutate(shp=case_when(Dis=="covid"~"yes",
+                      Dis!="covid"~"no")) %>%
+  ggplot() +
+  geom_jitter(aes(x = `Num SS`, y = Size, col = Dis, shape=shp),size=3, width = 0.25,height = 0) +
+  geom_smooth(aes(x=`Num SS`,  y=Size), col="black", method = "lm", formula = y ~ x + I(x^2), size = 1) + 
+  colScale + 
+  scale_y_log10()+
+  labs(x="Number of Superspreaders",y="Tree Size", 
+       col="Disease", title="A")  + 
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black")) -> p1
+
+## Kruskal Wallis COVID vs SARS and COVID vs MERS Inset Boxplot
+dat <- tree_data%>%filter(Dis%in%c("COVID","SARS","MERS")) %>% select(Dis,Size,`Num SS`)
+test=pairwise.wilcox.test(dat$`Num SS`, dat$Dis,
+                 p.adjust.method = "BH")
+my_comparisons <- list( c("SARS", "COVID"), c("COVID", "MERS"))
+ggboxplot(dat, x = "Dis", y = "Num SS", xlab="",ylab="Number of Superspreaders",
+          color = "Dis", order = c("MERS","COVID","SARS")) + 
+  stat_compare_means(method="wilcox.test", label.y = c(6, 3), ref.group = "COVID", label="p.signif",
+                     comparisons = my_comparisons) + # Add pairwise comparisons p-value
+  colScale +
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black")) -> compPlot
+
+tree_data %>% 
+  mutate(Dis=factor(Dis, as.character(med.k$Dis))) %>%
+  filter(Size >= 10) %>% #change 
+  ggplot(aes(x=`DispParm`, fill = Dis)) +
+  geom_histogram() + 
+  geom_text(data = med.k, aes(x = 150, y = 3.5, label = med.k), size = 3, inherit.aes = FALSE) + 
+  fillScale + 
+  scale_y_continuous(breaks=c(0,5)) +
+  scale_x_log10() + 
+  # scale_x_log10(breaks=c(.01, .1, 1, 10, 100), labels=c("0.01", "0.1", "1", "10", "100"))
+  labs(x="Dispersion Parameter (k)",y="Number of Trees", title="B")  + 
+  facet_grid(Dis~.) + 
+  geom_vline(data=med.k, aes(xintercept=med.k))+
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = 8, color="Black")) -> p2
+
+tree_data %>%
+  filter(Size >= 10) %>% #change
+  #mutate(Dis=factor(Dis, as.character(med.k$Dis))) %>%
+  ggplot(aes(x = reorder(Dis, `Cum Downstream`, FUN = median), y = `Cum Downstream`, fill = Dis)) + 
+  geom_boxplot(aes(), col = "black") +
+  fillScale +
+  labs(x = "", y = "Cum Prop. Downstream of Superspreaders",title="C") +
+  theme(legend.position="none", 
+        plot.title = element_text(face="bold", size=16), 
+        axis.text.x=element_text(size=txs, angle = 60, hjust=1.1), 
+        axis.text.y=element_text(size=txs), 
+        axis.title=element_text(size=txs,face="bold"),
+        legend.title = element_text(size=txs),   
+        legend.text = element_text(size=txs),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        strip.text = element_text(size = txs, color="Black"))  -> p3
+
+
+# saving figure! 
+# PDF output
+# pdf(
+#  file = "./supplemental-figs/S2Fig.pdf",
+#  title = "S2Fig", # displayed in title bar of PDF Reader
+#  width = figure.widths['page'], # full width, in inches
+#  height = figure.heights['page']*.9, # 70% of full height, in inches
+#  family = font.family, # defined above
+#  pointsize = font.size.normal # default (normal) size of text (in points). Defined above.
+# )
+
+# g1 <- ggpubr::ggarrange(p1, p3, ncol=1, align="v")
+# gridExtra::grid.arrange(g1,  p2,
+#                         layout_matrix = rbind(c(1, 2),
+#                                               c(1, 2))
+# )
+
+# close PDF file
+# invisible(dev.off())
+
+```
+
+
