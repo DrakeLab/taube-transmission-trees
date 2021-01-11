@@ -1,5 +1,6 @@
 ---
 title: "OutbreakTrees"
+runtime: shiny
 output: 
   flexdashboard::flex_dashboard:
     source_code: "https://github.com/DrakeLab/taube-transmission-trees"
@@ -11,7 +12,7 @@ output:
     # social: "twitter"
     logo: www/outbreaktrees_extreme_horizontal_sm.png
     favicon: www/outbreaktrees_icon_sm.png
-  runtime: shiny
+    
 ---
 
 ```{r setup, include=FALSE}
@@ -32,7 +33,7 @@ library(flexdashboard)
 library(shiny)
 library(DT)
 
-source("scripts/functions.r")
+source("scripts/functions.R")
 
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
