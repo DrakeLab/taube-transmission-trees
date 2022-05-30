@@ -4,7 +4,7 @@ runtime: shiny
 output: 
   flexdashboard::flex_dashboard:
     source_code: "https://github.com/DrakeLab/taube-transmission-trees"
-    orientation: columns
+    orientation: rows
     vertical_layout: scroll
     resize_reload: FALSE
     # theme: spacelab # can choose from: cosmo, bootstrap, cerulean, journal, flatly, readable, spacelab, united, lumen, paper, sandstone, simplex, yeti
@@ -12,7 +12,7 @@ output:
     # social: "twitter"
     logo: www/outbreaktrees_extreme_horizontal_sm.png
     favicon: www/outbreaktrees_icon_sm.png
-    
+
 ---
 
 ```{r setup, include=FALSE}
@@ -42,7 +42,7 @@ treeDat <- readRDS("data/data_tibble_trees.RDS")
 
 ```
 
-About 
+Home 
 =========================================
 
 #### What are transmission trees? 
@@ -57,7 +57,9 @@ Because transmission trees are rich sources of information, and collecting them 
 - Intervention efficacy
 - The number of missing or unreported cases
 
-This dashboard allows you to download the database including igraph objects of transmission trees and available attributes. In addition, users can filter the database to find relevant resources for diseases of interest at [Explore Database Tab](#ExploreDatabase) and plot transmission trees at [Explore Trees Tab](#ExploreTrees). More information on data collection is available in the [More Information Tab](#DownloadDatabase). 
+This dashboard allows you to download the database including igraph objects of transmission trees and available attributes. In addition, users can filter the database to find relevant resources for diseases of interest in the [Explore Database Tab](#ExploreDatabase) and plot transmission trees in the [Explore Trees Tab](#ExploreTrees). More information on data collection is available in the [More Information Tab](#DownloadDatabase). 
+
+Please see [Taube et al.](https://doi.org/10.1101/2021.01.11.21249622) for the publication of this database and examples of its utility, as well as a discussion of the biases and assumptions that must be accounted for when analyzing transmission tree data.
 
 ```{r fig.width=8}
 # static plots don't need to be reactive
@@ -97,7 +99,7 @@ The database contains basic descriptive information for each tree including the 
  
 dt <- treeDat %>% 
   mutate(Source=paste0("<a href='",Source.Link,"' target='_blank'>",Source,"</a>")) %>%
-  dplyr::select(id, Disease, Year, Size, Attributes, Source) %>% 
+  dplyr::select(id, Disease, Year, Country, Size, Attributes, Source) %>% 
   arrange(Attributes)
 
 DT::dataTableOutput("responses")
@@ -115,9 +117,9 @@ output$responses <- DT::renderDataTable({
 Explore Trees {#ExploreTrees}
 =========================================
 
-Inputs {.sidebar data-width=200}
+Column {.sidebar data-width=200}
 -------------------------------------
-Use the Explore Database tab to find trees you wish to plot and enter the tree `id` here. Select among common attributes to plot. 
+Use the Explore Database tab to find trees you wish to plot and view them here. Either delete the current `id` and begin typing a new one or scroll through the list to find the tree of interest. Select among common attributes to plot. 
 
 ```{r}
 #DT::dataTableOutput("responses")
@@ -155,7 +157,7 @@ shiny::downloadLink(outputId = "treeButton", label = "Download selected transmis
 
 ```
 
-Column {data-width=500}
+Row {data-height=650}
 -------------------------------------
 
 ### Transmission Tree
@@ -203,20 +205,20 @@ renderPlot({
                       main=pt,  # set inside renderplot
                       vertex.color=nodeCols, #from user input
                       vertex.size=nodeSizes, # from user input
-                      edge.arrow.size=0.35, vertex.label="")
+                      edge.arrow.size=0.5, vertex.label="")
       legend(x=.25, y=.95, bty = "n",
       legend=levels(Group),
-      fill=pal, border=NA, cex = .75, ncol=1)
+      fill=pal, border=NA, cex = 1.1, ncol=1)
     }else{
           igraph::plot.igraph(g, 
                       main=pt,  # set inside renderplot
                       vertex.color=nodeCols, #from user input
                       vertex.size=nodeSizes, # from user input
-                      edge.arrow.size=0.35, vertex.label="", 
+                      edge.arrow.size=0.5, vertex.label="", 
                       layout=layout_as_tree(g, circular = T))
-    legend(x=.25, y=.95, bty = "n",
+    legend(x=.1, y=1.25, bty = "n",
     legend=levels(Group),
-    fill=pal, border=NA, cex = .75, ncol=1)
+    fill=pal, border=NA, cex = 1.1, ncol=1)
     }
   }
 
@@ -234,21 +236,7 @@ renderPlot({
 
 ```
 
-Column {data-width=250}
--------------------------------------
-### Tree Metadata
-
-```{r}
-renderTable({
-  selectedDat() %>%
-    # would like this to be a link but not working rn (needs to render as a json 
-    # table or figure out how to do in Rmd)
-    #mutate(Source=paste0("<a href='",Source.Link,"' target='_blank'>",Source,"</a>")) %>%
-    dplyr::select(Size, `Num SS`, Attributes, Source) 
-})
-```
-
-### Distribution of Individual R in this tree
+### Distribution of Individual R in this tree 
 
 ```{r}
 renderPlot({
@@ -268,10 +256,33 @@ degs %>%
 ```
 
 
-Download Database and More Information {#DownloadDatabase}
+Row {data-height=300}
+-------------------------------------
+
+### Tree Metadata
+
+```{r}
+# labels <- c("Size", "Superspreaders", "R", "R (NT)", "k",
+#            "k (NT)", "Attributes", "Source")
+renderTable({
+  selectedDat() %>%
+    # would like this to be a link but not working rn (needs to render as a json 
+    # table or figure out how to do in Rmd)
+    #mutate(Source=paste0("<a href='",Source.Link,"' target='_blank'>",Source,"</a>")) %>%
+    dplyr::select(Size, `Num SS`, R0, `R0 NoTerm`, `DP`, `DP NoTerm`, Attributes, Source) %>% 
+    rename(`Super-spreaders` = `Num SS`, R = R0, `R_NT` = `R0 NoTerm`, k = DP, `k_NT` = `DP NoTerm`)
+    #t() %>% bind_cols(labels) %>% 
+    #select(`...2`, `...1`) %>% 
+    #rename("Value" = `...1`, "Variable" = `...2`)
+   
+})
+```
+$R$ and $k$ respectively denote the average number of secondary infections and the dispersion parameter calculated over all nodes in the tree. $R_{NT}$ and $k_{NT}$ are calculated over all nodes in the tree except terminal nodes (nodes that have no reported secondary infections). Please see [our publication](https://doi.org/10.1101/2021.01.11.21249622) for the rationale behind this distinction.
+
+Download & More Information {#DownloadDatabase}
 =========================================
 
-Inputs {.sidebar data-width=200}
+Column {.sidebar data-width=250}
 -------------------------------------
 #### Code
 
@@ -298,7 +309,7 @@ John M. Drake
 #### Questions
 
 Questions, Suggestions:  
-Juliana C. Taube
+Juliana C. Taube  
 `taubejc@gmail.com`
 					  
 #### Citation
@@ -321,33 +332,44 @@ This work was conducted as a part of the Population Biology of Infectious Diseas
 <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.</p>
 <p><a href="https://eits.uga.edu/access_and_security/infosec/pols_regs/policies/privacy/">Privacy Policy</a></p>
 
-
-Column
+Row 
 -------------------------------------
+### {}
+Methods and limitations of the database are briefly described below. Please see [Taube et al.](https://doi.org/10.1101/2021.01.11.21249622) for a more complete overview of the database construction process.
 
+Row 
+-------------------------------------
+### Database Overview
+
+Currently, this database contains 382 transmission trees for 16 directly-transmitted infectious diseases, most of which are caused by viruses. 256 trees describe outbreaks of COVID-19. Tree outbreak size ranges from 2 to 286. The sample of trees in our database should not be considered representative for each disease as we expect it to be skewed towards outbreaks with intermediate sizes, taking place in countries with greater capacity for epidemiological case follow-up.
+
+Row 
+-------------------------------------
 ### Methods
 
-#### Data collection
+##### Data collection
 
-Transmission trees were initially collected by searching Google Scholar, Scopus, PubMed, and Google Images for published literature using, among other terms: "transmission tree", "transmission chain", "transmission network", "outbreak investigation", "contact tracing", and "case report". With the emergence of COVID-19, we expanded our search to consider news articles and not-yet peer-reviewed sources (e.g. from medRxiv) with COVID-19 transmission trees. Many of these clusters were gathered from an online database, updated through July 6, 2020 [1]. If trees could not be readily collected from an article alone, we emailed authors of the paper to see if data could be shared with us or diagrams could be clarified to meet our inclusion criteria (see below). Each tree had a unique set of node attributes based on the available data. Attributes included, but were not limited to, age, sex, context of transmission, date of symptom onset, occupation, quarantine status, survival status, and location.
+Transmission trees were collected by searching Google Scholar, Scopus, PubMed, and Google Images for published literature containing graphs of transmission trees or written accounts of transmission events. With the emergence of COVID-19, we expanded our search to consider news articles and not-yet peer-reviewed sources (e.g. from medRxiv) with COVID-19 transmission trees. Many of these clusters were gathered from an online database, updated through July 6, 2020 [1]. If trees could not be readily collected from an article alone, we emailed authors of the paper to see if data could be shared with us or diagrams could be clarified to meet our inclusion criteria (see below). Each tree had a unique set of node attributes based on the available data. Attributes included, but were not limited to, age, sex, context of transmission, date of symptom onset, occupation, quarantine status, survival status, and location.
 
 [1] Leclerc, Q.J., Fuller, N.M., Knight, L.E., Funk, S., Knight, G.M. and CMMID COVID-19 Working Group, 2020. What settings have been linked to SARS-CoV-2 transmission clusters?. Wellcome Open Research, 5(83), p.83.
 
-#### Inclusion and Exclusion Criteria
+##### Inclusion and Exclusion Criteria
 
-Accepted transmission trees had two or more individuals, had been constructed through mainly epidemiologic or probabilistic methods, identified specific infectors and infectees, had only a single infector per infectee, and described a disease that was directly transmitted. Trees constructed using only genomic data or with more than one occurrence of multiple possible infectors for a single individual were excluded. Additionally, trees describing sexually-transmitted, food, vector, or waterborne diseases, as well as trees with non-human individuals were excluded. 
+For consistency, we required that trees meet the following criteria for inclusion in the database: 
 
-The only time trees that did not identify a single infector were included was when we could attribute infection to a single individual without changing the tree topology and by omitting more specific node attributes. If cases were all linked to a location, but not an individual infector, only the local chains of transmission stemming from that exposure were included as separate trees. Trees presented as clearly incomplete and still under ongoing investigation were excluded at this time. Articles in languages other than English were translated using Google Translate software.
+* Trees must have contained two or more individuals; case studies of isolated infected individuals were excluded. 
+* Trees must represent outbreaks of directly transmitted infectious diseases in humans; trees describing sexually transmitted, foodborne, vector-borne, or waterborne diseases, as well as diseases in non-humans (e.g., outbreaks among farm animals) were excluded.
+*	Trees were constructed through epidemiological or probabilistic methods; trees constructed using only genomic or phylogenetic methods were excluded. 
+* Trees had to report a single infector per infectee (i.e., trees that had multiple possible infectors for any case were excluded). However, if tree topology was unaffected by randomly assigning ambiguous infectors, we included the tree and omitted specific attribute data for the assigned infector. 
+* Trees were presented as completed investigations in the publication; we excluded trees presented as under ongoing investigation at the time of reporting.
 
-#### Data Entry
+##### Data Entry
 
-Trees were inputted manually as data.tree objects using information given in the relevant figure and text. We coded each tree as accurately as we could and reached out to authors for clarification if necessary. However, as with any outbreak investigation, cases may be missed due to lack of detection, misdiagnosis, and incomplete contact tracing efforts, among other reasons. Any assumptions made in entering the tree are listed under the `Notes` section of the database entry.
+Trees were inputted manually as `data.tree` objects using information given in the relevant figure and text. We coded each tree as accurately as we could and reached out to authors for clarification if necessary. However, as with any outbreak investigation, cases may be missed due to lack of detection, misdiagnosis, and incomplete contact tracing efforts, among other reasons. Any assumptions made in entering the tree are listed under the `Notes` section of the database entry.
 
-### Data summary 
-
-Currently, this database contains 383 transmission trees for 16 directly-transmitted infectious diseases, most of which are caused by viruses. 256 trees describe outbreaks of COVID-19. Tree outbreak size ranges from 2 to 286. The sample of trees in our database should not be considered representative for each disease as we expect it to be skewed towards outbreaks with intermediate sizes, taking place in countries with greater capacity for epidemiological case follow-up.
-
-### Attribute Meta-Data
+Row 
+-------------------------------------
+### Attribute Metadata
 
 | Attribute | Meaning |
 |---|---|
@@ -360,5 +382,25 @@ Currently, this database contains 383 transmission trees for 16 directly-transmi
 | rel  |  relationship to infector |
 | seq  |  strain sequence, if relevant |
 | trans  | information regarding certainty/knowledge of transmission pattern (probabilistic vs epidemiologic, or source of transmission link if tree constructed from multiple sources)  |
-| dur  | duration of exposure period, if known  |
+| dur  | duration of exposure period, if known |
 
+Row 
+-------------------------------------
+### Limitations
+There are several limitations to the database that should be kept in mind by users.
+
+* Trees in the database do not constitute a random nor necessarily representative sample of directly transmitted infectious disease outbreaks. Trees in the database are prone to both selection bias, in which outbreaks are noticed, and publication bias, in which outbreaks are published in an accessible format.
+    * We omitted nearly one hundred reported transmission events and trees due to lack of single infector identification, which limits the generalizability of analyses using only the database.
+    * The probability of detecting an outbreak may be higher if there is a superspreading event because public health officials are more likely to investigate a cluster than an isolated case.
+
+* Although trees are meant to be complete representations of clusters, they are typically a subset from a larger chain of transmission events. 
+    * Outbreak investigations may miss cases, sometimes in random or consistent ways. 
+
+* Control measures or behavior changes can alter parameters of disease spread in the middle of an outbreak. Due to limited available data, we have not included the timing of these events in the database, but they have the potential to affect every outbreak. 
+
+* Details about how each tree was constructed for publication are not included in the database; reconstruction methods may be biased in different ways. 
+
+Row 
+-------------------------------------
+### Usage Notes
+We have constructed the database so that other research groups may take advantage of this new resource, but we acknowledge that care and understanding of the limitations are required for responsible analyses. Thus, we provide these recommendations for future users to encourage appropriate use and generalizable conclusions. We opted to include small trees in the database for the sake of completeness and to allow for the possibility of minor outbreak analysis in the future (e.g., [Nishiura et al.](https://doi.org/10.1016/j.jtbi.2011.10.039)), but suggest that these smaller trees be excluded if users are seeking to calculate epidemiological quantities (as we did with a size cutoff of 20 individuals in our analyses). We also urge caution in viewing trees as absolute or complete. Several trees in the database are the result of probabilistic reconstruction, and so may represent only one possible way in which transmission may have occurred. Lack of ongoing transmission at the terminal nodes of a tree may be real, but also could be due to lack of follow-up or investigation. While conclusions drawn from the database may be biased, they are no more biased than the original inferences drawn from the individual trees which compose the database. With these suggestions in mind, we hope that the database can be used to properly address new questions.

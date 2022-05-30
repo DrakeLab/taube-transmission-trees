@@ -3795,72 +3795,8 @@ sle.2014.ebv.1.01 <- as.Node(yaml.load(sle.2014.ebv.1.01.y))
 
 Nipah Bangladesh 2001-14; Nikolay et al. (2019)
 ```{r, echo = FALSE}
-bgd.2001.nph.1.00.y <- '
-name: P1
-attr: "1"
-P2:
-  attr: "2"
-P3:
-  attr: "3"
-  P4:
-    attr: "4"
-P5:
-  attr: "5"
-  P6:
-    attr: "6"
-    P7:
-      attr: "7"
-    P8:
-      attr: "8"
-    P9:
-      attr: "9"
-    P10:
-      attr: "10"
-    P11:
-      attr: "11"
-    P12:
-      attr: "12"
-    P13:
-      attr: "13"
-    P14:
-      attr: "14"
-    P15:
-      attr: "15"
-      P16:
-        attr: "16"
-        P17:
-          attr: "17"
-        P18:
-          attr: "18"
-    P19:
-      attr: "19"
-    P20:
-      attr: "20"
-    P21:
-      attr: "21"
-    P22:
-      attr: "22"
-    P23:
-      attr: "23"
-    P24:
-      attr: "24"
-    P25:
-      attr: "25"
-    P26:
-      attr: "26"
-    P27:
-      attr: "27"
-    P28:
-      attr: "28"
-      P29:
-        attr: "29"
-        P30:
-          attr: "30"
-        P31:
-          attr: "31"
-        P32:
-          attr: "32"
-'
+# largest tree a duplicate of Gurley and tree is presented more clearly in Gurley, so using that one
+# the duplicate is bgd.2001.nph.1.00
 
 bgd.2001.nph.1.01.y <- '
 name: P1
@@ -4025,7 +3961,6 @@ P2:
   attr: "2"
 '
 
-bgd.2001.nph.1.00 <- as.Node(yaml.load(bgd.2001.nph.1.00.y))
 bgd.2001.nph.1.01 <- as.Node(yaml.load(bgd.2001.nph.1.01.y))
 bgd.2001.nph.1.02 <- as.Node(yaml.load(bgd.2001.nph.1.02.y))
 bgd.2001.nph.1.03 <- as.Node(yaml.load(bgd.2001.nph.1.03.y))
@@ -6989,6 +6924,76 @@ Patient 16:
     onset: "8/20"
 '
 # nga.2014.ebv.3.00 <- as.Node(yaml.load(nga.2014.ebv.3.00.y))
+
+bgd.2001.nph.1.00.y <- '
+name: P1
+attr: "1"
+P2:
+  attr: "2"
+P3:
+  attr: "3"
+  P4:
+    attr: "4"
+P5:
+  attr: "5"
+  P6:
+    attr: "6"
+    P7:
+      attr: "7"
+    P8:
+      attr: "8"
+    P9:
+      attr: "9"
+    P10:
+      attr: "10"
+    P11:
+      attr: "11"
+    P12:
+      attr: "12"
+    P13:
+      attr: "13"
+    P14:
+      attr: "14"
+    P15:
+      attr: "15"
+      P16:
+        attr: "16"
+        P17:
+          attr: "17"
+        P18:
+          attr: "18"
+    P19:
+      attr: "19"
+    P20:
+      attr: "20"
+    P21:
+      attr: "21"
+    P22:
+      attr: "22"
+    P23:
+      attr: "23"
+    P24:
+      attr: "24"
+    P25:
+      attr: "25"
+    P26:
+      attr: "26"
+    P27:
+      attr: "27"
+    P28:
+      attr: "28"
+      P29:
+        attr: "29"
+        P30:
+          attr: "30"
+        P31:
+          attr: "31"
+        P32:
+          attr: "32"
+'
+
+#bgd.2001.nph.1.00 <- as.Node(yaml.load(bgd.2001.nph.1.00.y))
+
 ```
 
 Trees coded in summer 2019 that no longer meet inclusion criteria in summer 2020
@@ -13487,7 +13492,7 @@ rou.2020.covid.1.20 <- as.Node(yaml.load(rou.2020.covid.1.20.y))
 ##Formation of tree lists and saving as R data objects
 ```{r tree list, echo = FALSE}
 tree_list <- list((aus.2000.meas.1.00), (aus.2003.meas.1.00), (aus.2010.meas.1.00),
-                 (bgd.2001.nph.1.00), (bgd.2001.nph.1.01), (bgd.2001.nph.1.02),
+                 (bgd.2001.nph.1.01), (bgd.2001.nph.1.02),
                  (bgd.2001.nph.1.03), (bgd.2001.nph.1.04), (bgd.2001.nph.1.05),
                  (bgd.2001.nph.1.06), (bgd.2001.nph.1.07), (bgd.2001.nph.1.08),
                  (bgd.2001.nph.1.11), (bgd.2001.nph.1.12), (bgd.2001.nph.1.13),
@@ -13618,7 +13623,7 @@ tree_list <- list((aus.2000.meas.1.00), (aus.2003.meas.1.00), (aus.2010.meas.1.0
                  (rou.2020.covid.1.19), (rou.2020.covid.1.20))
 
 names(tree_list) <- c(("aus.2000.meas.1.00"), ("aus.2003.meas.1.00"), ("aus.2010.meas.1.00"),
-                     ("bgd.2001.nph.1.00"), ("bgd.2001.nph.1.01"), ("bgd.2001.nph.1.02"),
+                     ("bgd.2001.nph.1.01"), ("bgd.2001.nph.1.02"),
                      ("bgd.2001.nph.1.03"), ("bgd.2001.nph.1.04"), ("bgd.2001.nph.1.05"),
                      ("bgd.2001.nph.1.06"), ("bgd.2001.nph.1.07"), ("bgd.2001.nph.1.08"),
                      ("bgd.2001.nph.1.11"), ("bgd.2001.nph.1.12"), ("bgd.2001.nph.1.13"),
@@ -13748,52 +13753,111 @@ names(tree_list) <- c(("aus.2000.meas.1.00"), ("aus.2003.meas.1.00"), ("aus.2010
                      ("rou.2020.covid.1.16"), ("rou.2020.covid.1.17"), ("rou.2020.covid.1.18"),
                      ("rou.2020.covid.1.19"), ("rou.2020.covid.1.20"))
 
-# 6 trees coded but not in these lists bc they are duplicates or no longer meet inclusion criteria: arg.1995.htv.1.00, kor.2015.mers.2.00, kor.2015.mers.3.00, kor.2015.mers.3.01, nga.2014.ebv.2.00, nga.2014.ebv.3.00
+# 6 trees coded but not in these lists bc they are duplicates or no longer meet inclusion criteria: arg.1995.htv.1.00, kor.2015.mers.2.00, kor.2015.mers.3.00, kor.2015.mers.3.01, nga.2014.ebv.2.00, nga.2014.ebv.3.00, bgd.2001.nph.1.00
 saveRDS(tree_list, file = "data/database_trees.RDS")
 ```
 
 ## Create Data Tibbles for Dashboard
 
+```{r prop w attr}
+# see igraph function in manuscript.rmd
+extract_attr_props <- function(tree_name){
+  atts <- str_split(tree_name$attributesAll, ",")
+  tree.i <- as.igraph.Node(tree_name, vertexAttributes = tree_name$attributesAll, directed=TRUE)
+  size <- length(V(tree.i))
+  
+  num_w_att <- rep(0, length(atts))
+  for(i in 1:length(atts)){
+    has_att <- 0
+    attr <- atts[[i]]
+    for(j in 1:size){
+      val <- vertex_attr(tree.i, attr, V(tree.i)[j])
+      if(! is.na(val)){
+        has_att <- has_att + 1
+      }
+    }
+    num_w_att[[i]] <- has_att/size
+  }
+  return(num_w_att)
+}
+
+```
+
 ```{r}
-# function to extract stats from tree object
+# function to extract stats from tree object, 
+# takeoff stats only really relevant for our analysis on larger trees, so limiting that within this function to avoid dispersion parameter error
 extract_tree_info <- function(tree_name){
-  attributes <- paste(tree_name$fieldsAll, collapse = ", ")
-  tree.i <- as.igraph.Node(tree_name, vertexAttributes = tree_name$fieldsAll, directed=TRUE)
-  # calculate R0, coefficient of variance, tree size
-  tree.r0 <- round(mean(degree(tree.i, mode = "out")), digits = 2)
+  attributes <- paste(tree_name$attributesAll, collapse = ", ")
+  tree.i <- as.igraph.Node(tree_name, vertexAttributes = tree_name$attributesAll, directed=TRUE)
+  zero_name <- names(which(degree(tree.i, mode = c("in")) == 0)) #root node
+  # calculate R0 (three ways)
+  d <- degree(tree.i, mode ="out") #all degrees
+  tree.r0 <- round(mean(d), digits = 2)
+  d_noterm <- d[d>0]
+  tree.r0.noterm <- round(mean(d_noterm), digits = 2)
+  # then want to exclude vertices who are in gen = max_gen(tree.i)
+  # determine max distance to all vertices of tree from root (zero_name), max_gen function already does this
+  gens=max(distances(tree.i, v = zero_name, to = V(tree.i), mode = c("out")))
+  not_last_gen <- V(tree.i)[which(distances(tree.i, v = zero_name, to = V(tree.i), mode = c("out")) < gens)]
+  d_nolastterm <- degree(tree.i, not_last_gen, mode = "out")
+  tree.r0.nolastterm <- round(mean(d_nolastterm), digits = 2)
+  
+  # calculate coefficient of variance, tree size
   tree.cv <- round(mean(degree(tree.i, mode = "out"))/var(degree(tree.i, mode = "out")), digits = 2)
   tree.sz <- vcount(tree.i)
+  
   # calculate dispersion parameter, if unable to optimize, assign NA
-  tree.dp <- tryCatch({round((fitdistr(degree(tree.i, mode = "out"), 
-                            "negative binomial"))$estimate["size"],
-                            digits = 2)
+  tree.dp <- tryCatch({round((fitdistr(d, "negative binomial"))$estimate["size"], digits = 2)
             }, error=function(e) {NA})
-  thresh <- qpois(0.99, tree.r0) #threshold num 2nd infs to be a SS, Lloyd-Smith et al. (2005)
-  num.ss <- length(which(degree(tree.i, mode = c("out")) > thresh))
-  prop.ss <- num.ss/tree.sz
-  zero_name <- names(which(degree(tree.i, mode = c("in")) == 0)) #root node
-  gen1 <- as.integer(degree(tree.i, zero_name, mode = c("out"))) #number in first generation
+  tree.dp.noterm <- tryCatch({round((fitdistr(d_noterm, "negative binomial"))$estimate["size"], digits = 2)
+            }, error=function(e) {NA})
+  tree.dp.nolastterm <- tryCatch({round((fitdistr(d_nolastterm, "negative binomial"))$estimate["size"], 
+                                        digits = 2)
+            }, error=function(e) {NA})
+  
+  # calculate r0 and dp for generations 0 and 1 for trees with 20+ nodes and 2+ generations of spread
+  gen1 <- as.integer(degree(tree.i, zero_name, mode = c("out"))) # number in first generation, degree of zero_name
   prop_gen1 <- gen1/tree.sz
-  if (max_gen(tree_name) < 2){
-    r0.takeoff <- gen1/(gen1 + 1) #number 2nd infs over total people = average R0
-    degrees <- c(gen1, rep(0, gen1)) 
-    #often not enough data to calculate dp.takeoff so commented out
-    #dp.takeoff <- round((fitdistr(degrees, "negative binomial"))$estimate["size"], digits = 2)
-  }else{
-    first_gen_nodes <- V(tree.i)[which(distances(tree.i, v = zero_name, to = V(tree.i), mode = c("out")) == 1)] #people in first generation
-    gen2 <- sum(degree(tree.i, first_gen_nodes, mode = c("out")))
-    r0.takeoff <- sum(gen1, gen2)/(gen1 + 1) #r0 of root and gen1 
-    degrees <- c(gen1, degree(tree.i, first_gen_nodes, mode = c("out")))
-    #dp.takeoff <- round((fitdistr(degrees, "negative binomial"))$estimate["size"], digits = 2)
+  r0.takeoff <- r0.takeoff.noterm <- dp.takeoff <- dp.takeoff.noterm <- NA # initializing
+  if(max_gen(tree_name) >= 2 & tree.sz >= 20){
+    first_gen_degs <- degree(tree.i, V(tree.i)[which(distances(tree.i, v = zero_name, to = V(tree.i), 
+                                                               mode = c("out")) == 1)], mode = c("out"))
+    first_gen_degs_nt <- first_gen_degs[first_gen_degs > 0]
+    r0.takeoff <- sum(gen1, sum(first_gen_degs))/(gen1 + 1) # gen1 is degree of zero_name
+    r0.takeoff.noterm <- sum(gen1, sum(first_gen_degs_nt))/(length(first_gen_degs_nt) + 1)
+    #r0.takeoff.nolastterm <- r0.takeoff # these are equivalent b/c last gen terminal nodes must be in G2+
+    
+    degrees <- c(gen1, first_gen_degs) # b/c gen1 is zero_name degree
+    degrees_nt <- c(gen1, first_gen_degs_nt)
+    dp.takeoff <- tryCatch({round((fitdistr(degrees, "negative binomial"))$estimate["size"], digits = 2)},
+                           error = function(e) {NA})
+    dp.takeoff.noterm <- tryCatch({round((fitdistr(degrees_nt, "negative binomial"))$estimate["size"], 
+                                         digits = 2)},
+                           error = function(e) {NA})
+    #dp.takeoff.nolastterm <- dp.takeoff
   }
+  thresh <- qpois(0.99, tree.r0) #threshold num 2nd infs to be a SS, Lloyd-Smith et al. (2005)
+  thresh_noterm <- qpois(0.99, tree.r0.noterm)
+  thresh_nolastterm <- qpois(0.99, tree.r0.nolastterm)
+  thresh_g01 <- qpois(0.99, r0.takeoff)
+  thresh_g01_noterm <- qpois(0.99, r0.takeoff.noterm)
+  num.ss <- length(which(degree(tree.i, mode = c("out")) > thresh))
+  num.ss.noterm <- length(which(degree(tree.i, mode = c("out")) > thresh_noterm))
+  num.ss.nolastterm <- length(which(degree(tree.i, mode = c("out")) > thresh_nolastterm))
+  num.ss.g01 <- length(which(degree(tree.i, mode = c("out")) > thresh_g01))
+  num.ss.g01.noterm <- length(which(degree(tree.i, mode = c("out")) > thresh_g01_noterm))
+  prop.ss <- num.ss/tree.sz # not adjusting for terminals with this stat yet
   
-  # determine max distance to all vertices of tree from root (zero_name)
-  gens=max(distances(tree.i, v = zero_name, to = V(tree.i), mode = c("out")))
-
-  
-  return(list("R0" = tree.r0, "DispParm" = tree.dp, "Size" = tree.sz, "Generations" = gens,
-              "Num SS" = num.ss, "Prop SS" = prop.ss, "Early R0" = r0.takeoff, "Gen1 Size" = gen1,
-              "Prop Gen1" = prop_gen1, "Attributes"=attributes))
+  return(list("R0" = tree.r0, "R0 NoTerm" = tree.r0.noterm, "R0 NoLastTerm" = tree.r0.nolastterm,
+              "DP" = tree.dp, "DP NoTerm" = tree.dp.noterm, "DP NoLastTerm" = tree.dp.nolastterm,
+              "R0 G01" = r0.takeoff, "R0 G01 NoTerm" = r0.takeoff.noterm,
+              "DP G01" = dp.takeoff, "DP G01 NoTerm" = dp.takeoff.noterm,
+              "Size" = tree.sz, "Generations" = gens, 
+              "Thresh" = thresh, "Thresh NoTerm" = thresh_noterm, "Thresh NoLastTerm" = thresh_nolastterm,
+              "Thresh G01" = thresh_g01, "Thresh G01 NoTerm" = thresh_g01_noterm,
+              "Num SS" = num.ss, "Num SS NoTerm" = num.ss.noterm, "Num SS NoLastTerm" = num.ss.nolastterm,
+              "Num SS G01" = num.ss.g01, "Num SS G01 NoTerm" = num.ss.g01.noterm,
+              "Prop SS" = prop.ss, "Gen1 Size" = gen1, "Prop Gen1" = prop_gen1, "Attributes" = attributes))
 }
 ```
 
@@ -13812,7 +13876,7 @@ for(i in 1:length(tree_list)){
 #treeData <- lapply(tree_list, extract_tree_info)
 treeData <- bind_rows(treeDataList)
 treeData$id <- names(tree_list)
-treeData$tree <- lapply(tree_list, function(x){as.igraph.Node(x, vertexAttributes = x$fieldsAll, directed=TRUE)})
+treeData$tree <- lapply(tree_list, function(x){as.igraph.Node(x, vertexAttributes = x$attributesAll, directed=TRUE)})
 
 # dataframe of disease types and transmission modes
 disMode <- data.frame(Dis = c("meas", "nph", "plg", "sars", "flu", 
@@ -13861,7 +13925,7 @@ Merge with publication information.
 
 ```{r}
 metaData <- read.csv("documents/tree_metadata.csv", stringsAsFactors = FALSE) %>% 
-  rename(id = treeID)
+  dplyr::rename(id = treeID)
 metaData$Disease <- as.factor(metaData$Disease)
 metaData$Sublocation <- ifelse(metaData$Sublocation=="", NA, metaData$Sublocation)
 treeData %<>% full_join(metaData,by="id")
@@ -13873,4 +13937,5 @@ Save tibble of Analyzed trees.
 ```{r last chunk}
 saveRDS(treeData, "data/data_tibble_trees.RDS")
 ```
+
 

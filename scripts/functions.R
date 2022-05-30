@@ -1,6 +1,7 @@
 ### Functions for transmission tree database
 ### Juliana Taube
-### edited June 2, 2020
+### edited June 2, 2020 but main function to extract tree info is directly in tree creation rmd
+### also most of these just got incorporated into Manuscript-draft.Rmd
 
 ## Returns a data frame with R0, dispersion parameter, tree size, number of superspreaders, 
 ##   percentage of nodes considered superspreaders, the initial R0, and the pathogen name 
@@ -31,7 +32,7 @@ get_stats <- function(tree_name, path_name = NA){
     degrees <- c(gen1, degree(tree.i, first_gen_nodes, mode = c("out")))
     #dp.takeoff <- round((fitdistr(degrees, "negative binomial"))$estimate["size"], digits = 2)
   }
-    return(data.frame("R0" = tree.r0, "DispParm" = tree.dp, "Size" = tree.sz, "Num SS" = num.ss, "Perc SS" = perc.ss, "Early R0" = r0.takeoff, "Path" = path_name))
+  return(data.frame("R0" = tree.r0, "DispParm" = tree.dp, "Size" = tree.sz, "Num SS" = num.ss, "Perc SS" = perc.ss, "Early R0" = r0.takeoff, "Path" = path_name))
 }
 
 ## Returns a data frame with each superspreader 
