@@ -282,7 +282,7 @@ renderPlot({
                       vertex.color=nodeCols, #from user input
                       vertex.size=nodeSizes, # from user input
                       edge.arrow.size=0.5, vertex.label="")
-      legend(x=.25, y=.95, bty = "n",
+      legend(x = "bottomleft", bty = "n", #x=.25, y=.95, bty = "n",
       legend=levels(Group),
       fill=pal, border=NA, cex = 1.1, ncol=1)
     }else{
@@ -326,7 +326,9 @@ degs%<>%full_join(data.frame(degree=1:max(degree(g, mode="out"))))%>%arrange(deg
 
 degs %>%
   ggplot(aes(x=factor(degree), y=freq)) + 
-   geom_bar(stat="identity") + labs(title="", x="",y="Frequency")
+   geom_bar(stat="identity") + labs(title="", x="Num. Secondary Infections", y="Frequency") +
+   theme(axis.title = element_text(size = 15),
+         axis.text = element_text(size = 12))
 })
 
 ```
