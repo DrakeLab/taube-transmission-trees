@@ -114,7 +114,13 @@ treeDat$tree_mod <- modified_trees
 Home 
 =========================================
 
-#### What are transmission trees? 
+#### Welcome to **OutbreakTrees**!
+
+#### A database of infectious disease transmission trees for public use.
+
+-------------------------------------
+
+##### **Database Motivation**
 
 Infectious disease outbreaks are commonly reported and displayed in the form of _transmission trees_, where individuals are represented by nodes and disease transmission events are represented by branches. Transmission trees are usually obtained from outbreak investigations or genomic reconstructions. 
 
@@ -128,7 +134,7 @@ Because transmission trees are rich sources of information, and collecting them 
 
 This dashboard allows you to download the database including igraph objects of transmission trees and available attributes. In addition, users can filter the database to find relevant resources for diseases of interest in the [Explore Database Tab](#ExploreDatabase) and plot transmission trees in the [Explore Trees Tab](#ExploreTrees). More information on data collection is available in the [More Information Tab](#DownloadDatabase). 
 
-Please see [Taube et al.](https://doi.org/10.1101/2021.01.11.21249622) for the publication of this database and examples of its utility, as well as a discussion of the biases and assumptions that must be accounted for when analyzing transmission tree data.
+The publication describing this database and examples of its utility, as well as a discussion of the biases and assumptions that must be accounted for when analyzing transmission tree data, is available [here](https://doi.org/10.1371/journal.pbio.3001685).
 
 ```{r fig.width=8}
 # static plots don't need to be reactive
@@ -242,6 +248,7 @@ renderPlot({
   g <- selectedDat()$tree_mod[[1]]
   selAtt <- input$graphColor
   thisAt <- as.character(attTable$code[attTable$selected==selAtt])
+  labelAt <- tolower(as.character(attTable$selected[attTable$selected==selAtt]))
   nodeSizes <- input$nodeSize
   
   # use selected attribute to determine node colors
@@ -297,7 +304,7 @@ renderPlot({
                       vertex.color=brewer.pal(3,"Accent")[2],
                       vertex.size=nodeSizes, # from user input
                       edge.arrow.size=0.35, vertex.label="")
-    mtext(side=3, line=-1, paste0("Attribute (", thisAt, ") \n not available for this tree"))
+    mtext(side=3, line=-1, paste0("Attribute '", labelAt, "' \n is not available for this tree"))
   }
   
 })
@@ -403,14 +410,22 @@ This work was conducted as a part of the Population Biology of Infectious Diseas
 
 Row 
 -------------------------------------
-### {}
-Methods and limitations of the database are briefly described below. Please see [Taube et al.](https://doi.org/10.1101/2021.01.11.21249622) for a more complete overview of the database construction process.
+### Database Overview
+
+Currently, this database contains 382 transmission trees for 16 directly-transmitted infectious diseases, most of which are caused by viruses. 256 trees describe outbreaks of COVID-19. Tree outbreak size ranges from 2 to 286. The sample of trees in our database should not be considered representative for each disease as we expect it to be skewed towards outbreaks with intermediate sizes, taking place in countries with greater capacity for epidemiological case follow-up. See additional limitations below.
 
 Row 
 -------------------------------------
-### Database Overview
+### Usage Notes \& Limitations
+We have constructed `OutbreakTrees` so that other research groups may take advantage of this resource, but we acknowledge that care and understanding of the database's limitations are required for responsible analyses. Thus, we provide these recommendations for future users to encourage appropriate use and generalizable conclusions. 
 
-Currently, this database contains 382 transmission trees for 16 directly-transmitted infectious diseases, most of which are caused by viruses. 256 trees describe outbreaks of COVID-19. Tree outbreak size ranges from 2 to 286. The sample of trees in our database should not be considered representative for each disease as we expect it to be skewed towards outbreaks with intermediate sizes, taking place in countries with greater capacity for epidemiological case follow-up.
+* **Smaller trees should be excluded if users are seeking to calculate epidemiological quantities** (as we did with a size cutoff of 20 individuals in our analyses). We opted to include small trees in the database for the sake of completeness and to allow for the possibility of minor outbreak analysis in the future (e.g., [Nishiura et al.](https://doi.org/10.1016/j.jtbi.2011.10.039)). 
+* **We urge caution in viewing trees as absolute or complete**. Outbreak investigations may miss cases, sometimes in random or consistent ways, meaning lack of ongoing transmission at the terminal nodes of a tree may be real, but also could be due to lack of follow-up. Several trees in the database are the result of probabilistic reconstruction, and so may represent only one possible way in which transmission may have occurred. 
+* **Trees in the database do not constitute a random nor necessarily representative sample of directly transmitted infectious disease outbreaks**. Trees in the database are prone to both selection bias, in which outbreaks are noticed, and publication bias, in which outbreaks are published in an accessible format. We omitted nearly one hundred reported transmission events and trees due to lack of single infector identification, which limits the generalizability of analyses using only the database.
+* **Control measures or behavior changes can alter parameters of disease spread in the middle of an outbreak.** Due to limited available data, we have not included the timing of these events in the database, but they have the potential to affect every outbreak.
+
+While conclusions drawn from the database may be biased, they are no more biased than the original inferences drawn from the individual trees which compose the database. With these suggestions and limitations in mind, we hope that the database can be used to properly address new questions. Additional details about the database construction process and a discussion of the challenges to analyzing transmission tree data can be found in [our publication](https://doi.org/10.1371/journal.pbio.3001685).
+
 
 Row 
 -------------------------------------
@@ -452,24 +467,3 @@ Row
 | seq  |  strain sequence, if relevant |
 | trans  | information regarding certainty/knowledge of transmission pattern (probabilistic vs epidemiologic, or source of transmission link if tree constructed from multiple sources)  |
 | dur  | duration of exposure period, if known |
-
-Row 
--------------------------------------
-### Limitations
-There are several limitations to the database that should be kept in mind by users.
-
-* Trees in the database do not constitute a random nor necessarily representative sample of directly transmitted infectious disease outbreaks. Trees in the database are prone to both selection bias, in which outbreaks are noticed, and publication bias, in which outbreaks are published in an accessible format.
-    * We omitted nearly one hundred reported transmission events and trees due to lack of single infector identification, which limits the generalizability of analyses using only the database.
-    * The probability of detecting an outbreak may be higher if there is a superspreading event because public health officials are more likely to investigate a cluster than an isolated case.
-
-* Although trees are meant to be complete representations of clusters, they are typically a subset from a larger chain of transmission events. 
-    * Outbreak investigations may miss cases, sometimes in random or consistent ways. 
-
-* Control measures or behavior changes can alter parameters of disease spread in the middle of an outbreak. Due to limited available data, we have not included the timing of these events in the database, but they have the potential to affect every outbreak. 
-
-* Details about how each tree was constructed for publication are not included in the database; reconstruction methods may be biased in different ways. 
-
-Row 
--------------------------------------
-### Usage Notes
-We have constructed the database so that other research groups may take advantage of this new resource, but we acknowledge that care and understanding of the limitations are required for responsible analyses. Thus, we provide these recommendations for future users to encourage appropriate use and generalizable conclusions. We opted to include small trees in the database for the sake of completeness and to allow for the possibility of minor outbreak analysis in the future (e.g., [Nishiura et al.](https://doi.org/10.1016/j.jtbi.2011.10.039)), but suggest that these smaller trees be excluded if users are seeking to calculate epidemiological quantities (as we did with a size cutoff of 20 individuals in our analyses). We also urge caution in viewing trees as absolute or complete. Several trees in the database are the result of probabilistic reconstruction, and so may represent only one possible way in which transmission may have occurred. Lack of ongoing transmission at the terminal nodes of a tree may be real, but also could be due to lack of follow-up or investigation. While conclusions drawn from the database may be biased, they are no more biased than the original inferences drawn from the individual trees which compose the database. With these suggestions in mind, we hope that the database can be used to properly address new questions.
