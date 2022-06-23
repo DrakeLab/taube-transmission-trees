@@ -1,5 +1,5 @@
 ---
-title: "OutbreakTrees"
+title: .
 runtime: shiny
 output: 
   flexdashboard::flex_dashboard:
@@ -175,7 +175,7 @@ The database contains basic descriptive information for each tree including the 
 dt <- treeDat %>% 
   mutate(Source=paste0("<a href='",Source.Link,"' target='_blank'>",Source,"</a>")) %>%
   dplyr::select(id, Disease, Year, Country, Size, Attributes, Source) %>% 
-  arrange(Attributes)
+  arrange(-Size)
 
 DT::dataTableOutput("responses")
 output$responses <- DT::renderDataTable({
