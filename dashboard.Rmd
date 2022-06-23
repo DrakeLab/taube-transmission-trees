@@ -1,5 +1,5 @@
 ---
-title: .
+title: OutbreakTrees
 runtime: shiny
 output: 
   flexdashboard::flex_dashboard:
@@ -114,8 +114,6 @@ treeDat$tree_mod <- modified_trees
 Home 
 =========================================
 
-#### Welcome to **OutbreakTrees**!
-
 #### A database of infectious disease transmission trees for public use.
 
 -------------------------------------
@@ -132,7 +130,7 @@ Because transmission trees are rich sources of information, and collecting them 
 - Intervention efficacy
 - The number of missing or unreported cases
 
-This dashboard allows you to download the database including igraph objects of transmission trees and available attributes. In addition, users can filter the database to find relevant resources for diseases of interest in the [Explore Database Tab](#ExploreDatabase) and plot transmission trees in the [Explore Trees Tab](#ExploreTrees). More information on data collection is available in the [More Information Tab](#DownloadDatabase). 
+This dashboard allows you to download the database including igraph objects of transmission trees and available attributes. In addition, users can filter the database to find relevant resources for diseases of interest in the [Explore Database Tab](https://outbreaktrees.ecology.uga.edu/#section-ExploreDatabase) and plot transmission trees in the [Explore Trees Tab](https://outbreaktrees.ecology.uga.edu/#section-ExploreTrees). More information on data collection is available in the [More Information Tab](https://outbreaktrees.ecology.uga.edu/#section-DownloadDatabase). 
 
 The publication describing this database and examples of its utility, as well as a discussion of the biases and assumptions that must be accounted for when analyzing transmission tree data, is available [here](https://doi.org/10.1371/journal.pbio.3001685).
 
@@ -355,7 +353,7 @@ renderTable({
    
 })
 ```
-$R$ and $k$ respectively denote the average number of secondary infections and the dispersion parameter calculated over all nodes in the tree. $R_{NT}$ and $k_{NT}$ are calculated over all nodes in the tree except terminal nodes (nodes that have no reported secondary infections). Please see [our publication](https://doi.org/10.1101/2021.01.11.21249622) for the rationale behind this distinction.
+$R$ and $k$ respectively denote the average number of secondary infections and the dispersion parameter calculated over all nodes in the tree. $R_{NT}$ and $k_{NT}$ are calculated over all nodes in the tree except terminal nodes (nodes that have no reported secondary infections). Please see [our publication](https://doi.org/10.1371/journal.pbio.3001685) for the rationale behind this distinction.
 
 Download & More Information {#DownloadDatabase}
 =========================================
